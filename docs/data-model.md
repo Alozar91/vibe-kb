@@ -174,7 +174,7 @@ CREATE UNIQUE INDEX uq_materials_name_alive
 | id | uuid PK |
 | material_id | uuid FK→materials not null |
 | version_id | uuid FK→material_versions not null |
-| from_status / to_status | enum'ы |
+| from_status / to_status | enum статуса материала (тот же enum, что `materials.status`, §4) |
 | actor_id | uuid FK→users not null |
 | request_id | uuid, nullable — Idempotency-Key клиента |
 | created_at | timestamptz not null |
