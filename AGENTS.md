@@ -1,5 +1,24 @@
 # AGENTS.md
 
-This repository is currently empty: no source files, manifests, configs, or git metadata were present when this file was created. There is no verified repo-specific guidance to record yet.
+## Проект
 
-Revisit this file once code or configuration is added, and record only facts that an agent could not infer by reading the repository itself.
+Корпоративная база знаний (vibe-kb): централизованное хранение, учёт, поиск (полнотекстовый, атрибутный, векторный, гибридный) и RAG (API + MCP) по корпоративным материалам. Аутентификация — Keycloak (пароль, LDAP, Kerberos/SPNEGO).
+
+## Стадия и правила
+
+- Текущая стадия — **концепция**. Имплементацию не начинать, пока концепция не согласована.
+- Вся документация живёт в `docs/` и пишется **на русском языке**.
+- Ключевой документ: `docs/concept.md` — концепция с нумерованными требованиями (1–38), проектными решениями, сравнением pgvector/Qdrant и открытыми вопросами (§16). Изменения концепции вносить правками по тексту; новые требования добавлять и в матрицу соответствия (§17).
+
+## Стек (зафиксирован в концепции)
+
+- Backend: Python + FastAPI; frontend: React (TypeScript).
+- PostgreSQL; кэш и очередь задач — **Valkey, не Redis** (Kafka/RabbitMQ — только по триггерам, `docs/concept.md` §13.1); объектное хранилище — **Silo** (`pgsty/silo`, S3-совместимый форк MinIO), не MinIO; вектора — pgvector (старт) с триггерами миграции на Qdrant.
+- Модели (эмбеддинги/LLM) — только по OpenAI-совместимому API.
+
+## Git
+
+- Remote `origin` → `https://github.com/Alozar91/vibe-kb.git`, основная ветка `master`.
+- Правило владельца: **каждый коммит сразу отправлять в origin**, не копить локальные коммиты.
+- Изменения документации вести в ветке `docs`.
+- Push работает через `gh auth git-credential` (вход через GitHub CLI под `Alozar91`); локальный `user.name`/`user.email` заданы в конфиге репозитория.
