@@ -8,11 +8,13 @@
 
 - Концепция **принята** (v1.0, `docs/concept.md`); разработка идёт по этапам §18, начиная с Этапа 0.
 - Вся документация живёт в `docs/` и пишется **на русском языке**; индекс — `docs/README.md`.
-- `docs/concept.md` — утверждённая концепция (требования 1–38, решения §16, стек). Изменения концепции — правками по тексту; новые требования добавлять в `docs/requirements.md` и в матрицу соответствия (§17 концепции).
+- Источники истины по областям: `docs/concept.md` — архитектура и решения; `docs/requirements.md` — функциональные требования (REQ-ID: АУТ/ГРП/МАТ/ВЕРС/СТАТ/ПРВ/ЧНК/ПСК/РАГ/ПРС/УВЕД/НФТ) с критериями приёмки; `docs/data-model.md` — схема БД и индексы; `docs/api-spec.md` — контракт API; `docs/auth-setup.md` — Keycloak/AD.
+- Новые функциональные требования фиксируются в `docs/requirements.md` (новый REQ-ID) и в матрице соответствия §17 концепции. Изменения схемы БД — только через `docs/data-model.md` + миграцию Alembic; изменения API — через `docs/api-spec.md` и OpenAPI-файл кода.
+- Идемпотентность обязательна (НФТ-9, §13.2 концепции): `Idempotency-Key` клиента на изменяющих операциях API (для загрузки файлов — строго), детерминированные ключи шагов пайплайна (`version_id` + шаг), append-only журнал статусов.
 
 ## Стек (зафиксирован в концепции)
 
-- Backend: Python + FastAPI; frontend: React (TypeScript).
+- Backend: Python + FastAPI (SQLAlchemy 2 + Alembic, Celery); frontend: React + TypeScript, UI-кит — Ant Design 5.
 - PostgreSQL; кэш и очередь задач — **Valkey, не Redis** (Kafka/RabbitMQ — только по триггерам, `docs/concept.md` §13.1); объектное хранилище — **Silo** (`pgsty/silo`, S3-совместимый форк MinIO), не MinIO; вектора — pgvector (старт) с триггерами миграции на Qdrant.
 - Модели (эмбеддинги/LLM) — только по OpenAI-совместимому API.
 
