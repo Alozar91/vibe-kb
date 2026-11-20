@@ -108,6 +108,16 @@ CREATE UNIQUE INDEX uq_materials_name_alive
 - `chunker_*` — снимок конфигурации индексации; изменение resolved-чанкера запускает переиндексацию (ЧНК-9).
 - При «файл не менялся» — `file_id` указывает на прежний `files.id` (дедупликация хранилища, ВЕРС-2).
 
+### 8.1 FTS-поля названий и описаний (ПСК-1, ПСК-2)
+
+| Таблица.колонка | Обновление | Назначение |
+|---|---|---|
+| `materials.name_tsv tsvector` | сервисно при переименовании | поиск по названиям материалов |
+| `material_versions.description_tsv tsvector` | при создании версии | поиск по описаниям (актуальной версии) |
+| `groups.name_tsv / description_tsv tsvector` | при переименовании/правке | поиск по группам (ПСК-2) |
+
+- Все — GIN-индексы; полнотекстовый режим (ПСК-1) ищет по объединению: `chunks.tsv_ru/tsv_en` + `name_tsv` + `description_tsv`.
+
 ## 6. files — файлы (объекты хранилища)
 
 | Поле | Тип | Описание |
@@ -150,7 +160,7 @@ CREATE UNIQUE INDEX uq_materials_name_alive
 | chunker_name / chunker_version | text not null | кто и чем сгенерирован (ЧНК-3) |
 | text | text not null | |
 | metadata | jsonb | лист, диапазон строк, заголовки и т.п. |
-| tsv | tsvector | FTS-индекс (GIN); конфигурации ru/en — отдельные колонки `tsv_ru`, `tsv_en` (ПСК-5) |
+| tsv | tsvector | FTS-индекс (GIN); конфигурации ru/en — отдельные колонки `tsv_ru`, `tsv_en` (ПСК-5); названия/описания — в отдельных FTS-колонках (§8.1) |
 | embedding | vector(dim) not null | pgvector; размерность — от модели эмбеддингов |
 
 - `unique (version_id, chunk_index, chunker_name)` — детерминированность; замена чанков версии — атомарно `delete … where version_id = …` + `insert` в одной транзакции (НФТ-9).

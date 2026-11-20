@@ -25,7 +25,7 @@
 ### 2.1 Realm и общее
 
 1. Создать realm `corp-kb`.
-2. Секреты (bind-пароль LDAP, keytab) — через переменные окружения/секреты контейнера, не в экспортируемом JSON конфигурации (НФТ-5).
+2. Секреты: bind-пароль LDAP — через **Keycloak Vault** (файловый vault: `KC_VAULT=file`, `KC_VAULT_FILE_DIR`; в поле Bind Credential провайдера — ссылка `${vault.ldap_bind_password}`); keytab — смонтированный файл, путь задаётся в конфигурации Kerberos-провайдера. В экспортируемом JSON конфигурации realm'а секретов быть не должно (НФТ-5).
 3. Политики паролей — только для локальных пользователей (АУТ-3); доменные проверяются в AD.
 
 ### 2.2 Клиенты
@@ -41,7 +41,7 @@
 
 ### 2.3 LDAP User Federation
 
-1. User Federation → Add LDAP: vendor `Active Directory`, connection URL(AD-5), bind DN/password (AD-1, secret).
+1. User Federation → Add LDAP: vendor `Active Directory`, connection URL(AD-5), bind DN (AD-1), bind password — vault-ссылка `${vault.ldap_bind_password}` (см. 2.1).
 2. Sync: `Import users` on; periodic full/changed sync — по согласованию (или доверяться импорту при первом входе, JIT).
 3. Mappers: `username` ← sAMAccountName, `email` ← mail, `firstName/lastName`, ключевой — **Kerberos principal attribute = `userPrincipalName`** (связка для АУТ-2).
 4. Edit mode: `READONLY` (пользователи и пароли управляются в AD).
@@ -49,7 +49,7 @@
 
 ### 2.4 Kerberos (SPNEGO)
 
-1. В LDAP-провайдере: **Allow Kerberos authentication = ON**; Kerberos realm `COMPANY.LOCAL`; Server Principal `HTTP/kb.company.local@COMPANY.LOCAL`; Keytab — путь до `kb-http.keytab` (AD-3); `debug` — на время приёмки.
+1. В LDAP-провайдере: **Allow Kerberos authentication = ON**; Kerberos realm `COMPANY.LOCAL`; Server Principal `HTTP/kb.company.local@COMPANY.LOCAL`; Keytab — путь до смонтированного файла (например, `/opt/keycloak/conf/kb-http.keytab`, AD-3); путь задаётся в этом поле конфигурации, не через env; `debug` — на время приёмки.
 2. Authentication → Flows → **browser**: Kerberos = **alternative** (пользователи без Kerberos откатятся на пароль; штатное поведение Keycloak).
 3. Сопоставление principal → LDAP-пользователь — по `userPrincipalName` (2.3.3): `john@COMPANY.LOCAL` → пользователь `john` в LDAP.
 4. `/etc/krb5.conf` на сервере Keycloak: realm COMPANY.LOCAL, KDC контроллеры (AD-5).
@@ -91,12 +91,14 @@
 
 | Переменная | Назначение |
 |---|---|
-| `KC_DB_URL`, `KC_DB_USERNAME`, `KC_DB_PASSWORD` | БД Keycloak |
+| `KC_DB_URL`, `KC_DB_USERNAME`, `KC_DB_PASSWORD` | БД Keycloak (переменные Keycloak, префикс `KC_`) |
 | `KC_HOSTNAME`, `KC_HTTPS_CERTIFICATE_*` | hostname/TLS realm'а |
 | `KC_LDAP_BIND_DN`, `KC_LDAP_BIND_PASSWORD` | bind-аккаунт (секрет) |
 | `KC_KERBEROS_KEYTAB_PATH` | путь к keytab (секрет) |
-| `KB_API_KEYCLOAK_ISSUER` | `https://<keycloak>/realms/corp-kb` |
+| `KB_API_KEYCLOAK_ISSUER` | `https://<keycloak>/realms/corp-kb` (переменные приложения КБ, префикс `KB_`) |
 | `KB_API_KEYCLOAK_AUDIENCES` | ожидаемые `aud` (`kb-rag`, `kb-mcp`, …) |
 | `KB_API_JWKS_CACHE_TTL` | TTL кэша JWKS |
+
+- Префиксы неймспейсов: `KC_*` — конфигурация сервера Keycloak; `KB_*` — конфигурация приложения КБ.
 
 > Названия переменных — целевые; финальные имена фиксируются в `docs/deployment.md` при сборке Этапа 0.
