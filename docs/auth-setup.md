@@ -12,7 +12,6 @@
 |---|---|---|
 | AD-1 | Создать service account для LDAP-подключения Keycloak | read-only bind-аккаунт, например `svc-keycloak-ldap`; права — чтение дерева пользователей |
 | AD-2 | Зарегистрировать SPN для сайта КБ | `setspn -S HTTP/merch-vibe.ru svc-keycloak-kerberos` (hostname — `merch-vibe.ru`; путь `/know` на SPN не влияет; CNAME должен совпадать) |
-
 | AD-3 | Экспортировать keytab для этого SPN | `ktpass -out kb-http.keytab -princ HTTP/merch-vibe.ru@<REALM> -mapUser svc-keycloak-kerberos +rndPass …`; keytab передаётся на сервер Keycloak по защищённому каналу |
 | AD-4 | Синхронизация времени | Kerberos чувствителен к рассинхронизации (>5 мин = отказ) — сервер Keycloak в доменном времени |
 | AD-5 | Параметры LDAP для federation | адрес(а) контроллеров домена, базовый DN пользователей, атрибуты: логин (sAMAccountName), email, отображаемое имя, `userPrincipalName` |
