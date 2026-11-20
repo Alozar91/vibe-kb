@@ -2,7 +2,7 @@
 
 - **Статус:** рабочий документ (v0.2, 2026-11-20)
 - **Основа:** §3, §13, §15 концепции; `code-standards.md` (конфиг через pydantic-settings, секреты в env).
-- **Стенды:** `dev` — docker-compose на локальной машине, без TLS; `приёмочный` — `https://merch-vibe.ru/know` (TLS-сертификат); `prod` — после приёмки.
+- **Стенды и TLS (уточнено 2026-11-20):** доменное имя `merch-vibe.ru` **есть**, TLS-сертификата **пока нет**. `dev` — docker-compose локально, `http://merch-vibe.ru` или localhost; `приёмочный` — тот же сервер, `https://merch-vibe.ru/know` — **после выпуска сертификата** (до этого — HTTP); `prod` — после приёмки.
 - **Решения от 2026-11-20:** публичный адрес `https://merch-vibe.ru/know` (base-path `/know`); эмбеддинги — `BAAI/bge-m3`, dense **1024**, до 8192 токенов, мультиязычная (MIT); Python **3.12**, Node **22 LTS**.
 
 ## 1.1 Публичные адреса и base-path (решение)
@@ -32,7 +32,7 @@
 | `beat` | тот же образ `backend/` | — | Celery beat: плановые задачи (§5) |
 | `mcp` | тот же образ `backend/` | 8100 (внутр.) | MCP-сервер (Streamable HTTP) |
 | `converter` | сборка `tools/converter/` | 8200 (внутр.) | тонкий HTTP-сервис над LibreOffice headless (`soffice --convert-to pdf`) |
-| `frontend` | сборка `frontend/` (nginx) | **80/443 наружу** | статика React (base `/know/`) + reverse proxy на `api`/`mcp` |
+| `frontend` | сборка `frontend/` (nginx) | **80/443 наружу** | статика React (base `/know/`) + reverse proxy на `api`/`mcp`; HTTPS — после выпуска сертификата |
 | `tei` *(профиль `models`, опционально)* | `ghcr.io/huggingface/text-embeddings-inference` | 8090 (внутр.) | OpenAI-compatible `/v1/embeddings` с `BAAI/bge-m3` (1024); на dev — профиль `models` или внешний эндпоинт |
 
 - Наружу открыт только `frontend` (nginx: `/*` → статика, `/api` → `api`, `/mcp` → `mcp`, `/metrics` — только из внутренней сети).
@@ -123,7 +123,7 @@ KB_IDEMPOTENCY_TTL_HOURS=24
 - TLS на nginx + hostname = SPN из AD-2/AD-3 (`auth-setup.md`).
 - LDAP federation + Kerberos включены; GPO браузеров развернуты (AD-6).
 - Бэкапы по расписанию с хранением; мониторинг включён; алерты настроены.
-- Обновления: миграции до новой версии приложения, `rolling` не требуется (один инстанс), проверка после деплоя по чек-листу §5.7.
+- Обновления: миграции до новой версии приложения, `rolling` не требуется (один инстанс), проверка после деплоя по чек-листу §5 (шаг 7 — smoke-тест).
 
 ## 7. Решённые и оставшиеся вопросы
 
@@ -131,9 +131,11 @@ KB_IDEMPOTENCY_TTL_HOURS=24
 
 | Вопрос | Решение |
 |---|---|
-| Публичный адрес | `https://merch-vibe.ru/know` (base-path `/know`); Keycloak — предложение `…/auth` (§1.1) |
+| Публичный адрес | `https://merch-vibe.ru/know` (base-path `/know`); Keycloak — `https://merch-vibe.ru/auth` (§1.1, подтверждено) |
 | Модель эмбеддингов | `BAAI/bge-m3` — dense 1024, до 8192 токенов, 100+ языков, MIT; хостинг — TEI или любой OpenAI-compatible |
 | Версии | Python 3.12, Node 22 LTS |
+
+**Статус TLS (уточнено 2026-11-20):** доменное имя `merch-vibe.ru` — есть; TLS-сертификата — пока нет. Приёмочный стенд стартует по HTTP; HTTPS включается выпуском сертификата (Let's Encrypt или коммерческий — на выбор владельца сервера); redirect HTTP→HTTPS и HSTS включаются в момент перехода на TLS.
 
 **Осталось:**
 
@@ -141,7 +143,7 @@ KB_IDEMPOTENCY_TTL_HOURS=24
 |---|---|
 | LLM для `with_answer` | настройки `KB_LLM_*` (Этап 2) |
 | Появление корпоративной сети/AD | LDAP federation, Kerberos/SPN (`HTTP/merch-vibe.ru`), задачи AD-1…7 из auth-setup |
-| TLS-сертификат `merch-vibe.ru` | приёмочный стенд |
+| TLS-сертификат `merch-vibe.ru` | переключение приёмочного стенда на HTTPS (НФТ-3); до выпуска сертификата стенд — HTTP, отступление от НФТ-3 осознанное и временное |
 
 ## 8. Что НЕ входит сюда
 
