@@ -1,8 +1,21 @@
 # Deployment (стенды, окружение, наблюдаемость)
 
-- **Статус:** рабочий документ (v0.1, 2026-11-20)
+- **Статус:** рабочий документ (v0.2, 2026-11-20)
 - **Основа:** §3, §13, §15 концепции; `code-standards.md` (конфиг через pydantic-settings, секреты в env).
-- **Стенды:** `dev` — docker-compose на локальной машине, без TLS; `приёмочный` — сервер владельца с TLS-сертификатом (hostname согласуется с AD — см. открытые вопросы §7); `prod` — после приёмки, конфигурация та же, что приёмочный.
+- **Стенды:** `dev` — docker-compose на локальной машине, без TLS; `приёмочный` — `https://merch-vibe.ru/know` (TLS-сертификат); `prod` — после приёмки.
+- **Решения от 2026-11-20:** публичный адрес `https://merch-vibe.ru/know` (base-path `/know`); эмбеддинги — `BAAI/bge-m3`, dense **1024**, до 8192 токенов, мультиязычная (MIT); Python **3.12**, Node **22 LTS**.
+
+## 1.1 Публичные адреса и base-path (решение)
+
+| Адрес | Что за ним | Примечание |
+|---|---|---|
+| `https://merch-vibe.ru/know` | React SPA | `vite base = '/know/'`, роутер `basename='/know'` |
+| `https://merch-vibe.ru/know/api/v1/…` | FastAPI | внутренний путь `/api/v1`; nginx проксирует `/know/api/` → `api:8000` |
+| `https://merch-vibe.ru/know/mcp` | MCP | nginx → `mcp:8100` |
+| `https://merch-vibe.ru/auth` (предложение) | Keycloak | `KC_HTTP_RELATIVE_PATH=/auth` — один сертификат на `merch-vibe.ru`, без поддомена; issuer: `…/auth/realms/corp-kb` |
+
+- Суффикс `/know` не влияет на SPN Kerberos: он строится по хосту — `HTTP/merch-vibe.ru` (актуально, когда появится корпоративная сеть, §7).
+
 
 ---
 
@@ -19,7 +32,8 @@
 | `beat` | тот же образ `backend/` | — | Celery beat: плановые задачи (§5) |
 | `mcp` | тот же образ `backend/` | 8100 (внутр.) | MCP-сервер (Streamable HTTP) |
 | `converter` | сборка `tools/converter/` | 8200 (внутр.) | тонкий HTTP-сервис над LibreOffice headless (`soffice --convert-to pdf`) |
-| `frontend` | сборка `frontend/` (nginx) | **80/443 наружу** | статика React + reverse proxy на `api`/`mcp` |
+| `frontend` | сборка `frontend/` (nginx) | **80/443 наружу** | статика React (base `/know/`) + reverse proxy на `api`/`mcp` |
+| `tei` *(профиль `models`, опционально)* | `ghcr.io/huggingface/text-embeddings-inference` | 8090 (внутр.) | OpenAI-compatible `/v1/embeddings` с `BAAI/bge-m3` (1024); на dev — профиль `models` или внешний эндпоинт |
 
 - Наружу открыт только `frontend` (nginx: `/*` → статика, `/api` → `api`, `/mcp` → `mcp`, `/metrics` — только из внутренней сети).
 - `dev`-отличие: без TLS; vite dev-server на хосте для фронта (proxy на `api`).
@@ -35,25 +49,27 @@ KB_S3_ACCESS_KEY=***            # секрет
 KB_S3_SECRET_KEY=***            # секрет
 KB_VALKEY_URL=redis://valkey:6379/0
 # --- Аутентификация (см. auth-setup.md §5) ---
-KB_KEYCLOAK_ISSUER=https://kb.company.local/realms/corp-kb
+KB_KEYCLOAK_ISSUER=https://merch-vibe.ru/auth/realms/corp-kb
 KB_KEYCLOAK_AUDIENCES=kb-rag,kb-mcp
 KC_DB_URL=...                   # БД Keycloak
 KC_BOOTSTRAP_ADMIN_USERNAME/PASSWORD=***   # секрет, только первый запуск
 KC_VAULT=file
 KC_VAULT_FILE_DIR=/opt/keycloak/vault      # ldap_bind_password и др.
-KC_HOSTNAME=kb.company.local
+KC_HOSTNAME=merch-vibe.ru
+KC_HTTP_RELATIVE_PATH=/auth
 # --- Модели (OpenAI-compatible) ---
-KB_EMBEDDINGS_BASE_URL=***
-KB_EMBEDDINGS_API_KEY=***       # секрет
-KB_EMBEDDINGS_MODEL=***         # + dims — см. открытые вопросы §7
+KB_EMBEDDINGS_BASE_URL=http://tei:8090/v1     # или внешний OpenAI-compatible эндпоинт
+KB_EMBEDDINGS_API_KEY=***       # секрет (для TEI может быть заглушкой)
+KB_EMBEDDINGS_MODEL=bge-m3
+KB_EMBEDDINGS_DIMS=1024         # BAAI/bge-m3, dense; до 8192 токенов
 KB_LLM_BASE_URL=***
 KB_LLM_API_KEY=***              # секрет
-KB_LLM_MODEL=***
+KB_LLM_MODEL=***                # выбрать к Этапу 2 (with_answer)
 # --- Почта ---
 KB_SMTP_HOST=***
 KB_SMTP_USER=***                # секрет
 KB_SMTP_PASSWORD=***            # секрет
-KB_SMTP_FROM=noreply@company.local
+KB_SMTP_FROM=noreply@merch-vibe.ru
 # --- Прочее ---
 KB_UPLOAD_MAX_SIZE_MB=50        # дубль настройки в БД (значение по умолчанию)
 KB_IDEMPOTENCY_TTL_HOURS=24
@@ -109,14 +125,23 @@ KB_IDEMPOTENCY_TTL_HOURS=24
 - Бэкапы по расписанию с хранением; мониторинг включён; алерты настроены.
 - Обновления: миграции до новой версии приложения, `rolling` не требуется (один инстанс), проверка после деплоя по чек-листу §5.7.
 
-## 7. Открытые вопросы (решить до Этапа 1)
+## 7. Решённые и оставшиеся вопросы
+
+**Решено (2026-11-20):**
+
+| Вопрос | Решение |
+|---|---|
+| Публичный адрес | `https://merch-vibe.ru/know` (base-path `/know`); Keycloak — предложение `…/auth` (§1.1) |
+| Модель эмбеддингов | `BAAI/bge-m3` — dense 1024, до 8192 токенов, 100+ языков, MIT; хостинг — TEI или любой OpenAI-compatible |
+| Версии | Python 3.12, Node 22 LTS |
+
+**Осталось:**
 
 | Вопрос | Влияет на |
 |---|---|
-| Hostname приёмочного стенда (`kb.company.local`?) | SPN/keytab (AD-2/3), `KC_HOSTNAME`,Issuer |
-| Модель эмбеддингов + размерность | колонка `chunks.embedding vector(dim)`, переиндексация |
-| LLM для `with_answer` | настройки `KB_LLM_*` |
-| Пин версий Python/Node | CI, образы |
+| LLM для `with_answer` | настройки `KB_LLM_*` (Этап 2) |
+| Появление корпоративной сети/AD | LDAP federation, Kerberos/SPN (`HTTP/merch-vibe.ru`), задачи AD-1…7 из auth-setup |
+| TLS-сертификат `merch-vibe.ru` | приёмочный стенд |
 
 ## 8. Что НЕ входит сюда
 

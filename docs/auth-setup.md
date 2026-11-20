@@ -1,7 +1,8 @@
 # Настройка аутентификации: Keycloak + AD
 
-- **Статус:** рабочий документ (v0.1, 2026-11-20)
+- **Статус:** рабочий документ (v0.2, 2026-11-20)
 - **Основа:** §4 концепции (АУТ-1…АУТ-6 в ТЗ). Документ двухадресный: часть 1 — задачи для **AD-администраторов** (передать им заранее!), часть 2 — настройка **Keycloak**, часть 3 — чек-лист приёмки.
+- **Важно (2026-11-20):** корпоративной сети/AD пока **нет**. На старте работает только вход локальных пользователей Keycloak (АУТ-3). Раздел 1 (задачи AD) и настройка LDAP/Kerberos (§2.3, §2.4) — **отложены до появления AD**; публичный адрес — `https://merch-vibe.ru/know`, SPN на будущее — `HTTP/merch-vibe.ru`.
 
 ---
 
@@ -10,11 +11,12 @@
 | № | Задача | Детали |
 |---|---|---|
 | AD-1 | Создать service account для LDAP-подключения Keycloak | read-only bind-аккаунт, например `svc-keycloak-ldap`; права — чтение дерева пользователей |
-| AD-2 | Зарегистрировать SPN для сайта КБ | `setspn -S HTTP/kb.company.local svc-keycloak-kerberos` (имя хоста — то, что пользователи набирают в браузере; CNAME должен совпадать) |
-| AD-3 | Экспортировать keytab для этого SPN | `ktpass -out kb-http.keytab -princ HTTP/kb.company.local@COMPANY.LOCAL -mapUser svc-keycloak-kerberos +rndPass …`; keytab передаётся на сервер Keycloak по защищённому каналу |
+| AD-2 | Зарегистрировать SPN для сайта КБ | `setspn -S HTTP/merch-vibe.ru svc-keycloak-kerberos` (hostname — `merch-vibe.ru`; путь `/know` на SPN не влияет; CNAME должен совпадать) |
+
+| AD-3 | Экспортировать keytab для этого SPN | `ktpass -out kb-http.keytab -princ HTTP/merch-vibe.ru@<REALM> -mapUser svc-keycloak-kerberos +rndPass …`; keytab передаётся на сервер Keycloak по защищённому каналу |
 | AD-4 | Синхронизация времени | Kerberos чувствителен к рассинхронизации (>5 мин = отказ) — сервер Keycloak в доменном времени |
 | AD-5 | Параметры LDAP для federation | адрес(а) контроллеров домена, базовый DN пользователей, атрибуты: логин (sAMAccountName), email, отображаемое имя, `userPrincipalName` |
-| AD-6 | Групповые политики браузеров на рабочих станциях | Edge/IE: `kb.company.local` — в зону «Локальная интрасеть»; Chrome: политика `AuthServerAllowlist = kb.company.local` (и, если потребуется делегирование, `AuthNegotiateDelegateAllowlist`); Firefox — `network.negotiate-auth.trusted-uris` |
+| AD-6 | Групповые политики браузеров на рабочих станциях | Edge/IE: `merch-vibe.ru` — в зону «Локальная интрасеть»; Chrome: политика `AuthServerAllowlist = merch-vibe.ru` (и, если потребуется делегирование, `AuthNegotiateDelegateAllowlist`); Firefox — `network.negotiate-auth.trusted-uris` |
 | AD-7 | Согласовать процесс блокировки учётных записей | при увольнении — disable в AD (АУТ-4); список локальных (не доменных) пользователей ведёт админ Keycloak |
 
 - Без AD-6 браузер покажет обычный экран логина — это штатный fallback (АУТ-2 выполнится только после настройки политик).
@@ -32,7 +34,7 @@
 
 | Client | Тип | Назначение | Настройки |
 |---|---|---|---|
-| `kb-web` | public | SPA (React) | Authorization Code + PKCE; redirect `https://kb.company.local/*`; **Direct Access Grants OFF** |
+| `kb-web` | public | SPA (React) | Authorization Code + PKCE; redirect `https://merch-vibe.ru/know/*`; **Direct Access Grants OFF** |
 | `kb-rag` | confidential (или public+PKCE) | RAG API для интеграций и скриптов | client credentials разрешён для service accounts (АУТ-6) |
 | `kb-mcp` | confidential | MCP-сервер | OAuth для агентов (authorization code) + service accounts для техинтеграций |
 
@@ -47,12 +49,12 @@
 4. Edit mode: `READONLY` (пользователи и пароли управляются в AD).
 5. Проверка: `Test connection`, `Sync all users`, найти тестового пользователя.
 
-### 2.4 Kerberos (SPNEGO)
+### 2.4 Kerberos (SPNEGO) — отложено до появления AD
 
-1. В LDAP-провайдере: **Allow Kerberos authentication = ON**; Kerberos realm `COMPANY.LOCAL`; Server Principal `HTTP/kb.company.local@COMPANY.LOCAL`; Keytab — путь до смонтированного файла (например, `/opt/keycloak/conf/kb-http.keytab`, AD-3); путь задаётся в этом поле конфигурации, не через env; `debug` — на время приёмки.
+1. В LDAP-провайдере: **Allow Kerberos authentication = ON**; Kerberos realm `<домен компании>`; Server Principal `HTTP/merch-vibe.ru@<REALM>`; Keytab — путь до смонтированного файла (например, `/opt/keycloak/conf/kb-http.keytab`, AD-3); путь задаётся в этом поле конфигурации, не через env; `debug` — на время приёмки.
 2. Authentication → Flows → **browser**: Kerberos = **alternative** (пользователи без Kerberos откатятся на пароль; штатное поведение Keycloak).
-3. Сопоставление principal → LDAP-пользователь — по `userPrincipalName` (2.3.3): `john@COMPANY.LOCAL` → пользователь `john` в LDAP.
-4. `/etc/krb5.conf` на сервере Keycloak: realm COMPANY.LOCAL, KDC контроллеры (AD-5).
+3. Сопоставление principal → LDAP-пользователь — по `userPrincipalName` (2.3.3): `john@<REALM>` → пользователь `john` в LDAP.
+4. `/etc/krb5.conf` на сервере Keycloak: realm компании, KDC контроллеры (AD-5).
 
 ### 2.5 Локальные пользователи и service accounts
 
