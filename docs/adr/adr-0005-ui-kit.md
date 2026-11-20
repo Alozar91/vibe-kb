@@ -8,7 +8,7 @@
 
 ## Решение
 
-UI-кит — **Ant Design 5** (Tree, Table, Upload, Form, русская локаль `ru_RU`). Тема — только через `ConfigProvider` (design tokens). Структура фронта — feature-sliced (code-standards §3.1), серверное состояние — TanStack Query.
+UI-кит — **Ant Design 5** (Tree, Table, Upload, Form, русская локаль `ru_RU`). Тема — только через `ConfigProvider` (design tokens). Структура фронта — feature-sliced (`code-standards.md` §3.1), серверное состояние — TanStack Query.
 
 ## Альтернативы
 
