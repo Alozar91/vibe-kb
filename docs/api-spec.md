@@ -68,7 +68,7 @@
 | `POST /materials/{id}/move` | перемещение `{target_group_id}` | Редактор+ в обеих группах (МАТ-5) |
 | `GET /materials/{id}/versions` | список версий с diff-метаданными | Читатель+ |
 | `GET /versions/{vid}/file` | скачивание оригинала (binary stream; через API, ПРС-1) | Читатель+ |
-| `GET /versions/{vid}/preview` | PDF-превью / рендер-формат; `423` до AV-скана, `409 preview_pending`-семантика (заглушка «превью готовится») пока конвертация не завершена | Читатель+ |
+| `GET /versions/{vid}/preview` | PDF-превью / рендер-формат; `423` до AV-скана; `202 {status: "pending"}` пока конвертация не завершена; `200` + PDF после | Читатель+ |
 | `POST /materials/{id}/transitions` | смена статуса `{to}` — только допустимые переходы (СТАТ-2); `Idempotency-Key` рекомендован | по таблице §6 |
 | `POST /materials/{id}/links` | привязка родителя `{parent_id}` — фиксирует актуальную версию родителя | Редактор+ |
 | `PATCH /materials/{id}/links` | перепривязка `{parent_version_id?}` / `DELETE /materials/{id}/links` — отвязка | Редактор+ (ВЕРС-4) |
