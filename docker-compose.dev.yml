@@ -1,0 +1,55 @@
+# Локальный стенд Этапа 0 (dev): только инфраструктура, без api/frontend (собираются позже).
+# Полный состав — deployment.md §1. Запуск: docker compose -f docker-compose.dev.yml up -d
+name: vibe-kb-dev
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: kb
+      POSTGRES_PASSWORD: kb
+      POSTGRES_DB: kb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kb -d kb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:9
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: ["valkey-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  silo:
+    image: pgsty/silo:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: kbadmin
+      MINIO_ROOT_PASSWORD: kbadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - silo_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pg_data:
+  valkey_data:
+  silo_data:

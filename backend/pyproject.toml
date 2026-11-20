@@ -1,0 +1,58 @@
+[project]
+name = "vibe-kb-backend"
+version = "0.1.0"
+description = "Корпоративная база знаний — backend (FastAPI)"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "sqlalchemy>=2.0.36",
+    "alembic>=1.14",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3.6",
+    "pydantic>=2.10",
+    "pydantic-settings>=2.6",
+    "celery>=5.4",
+    "valkey-glide>=1.1",        # может быть заменён на redis-py; см. settings
+    "redis>=5.2",               # Celery-брокер/кэш (протокол Redis = Valkey)
+    "boto3>=1.35",              # S3-совместимое хранилище (Silo)
+    "python-multipart>=0.0.17",
+    "python-jose[cryptography]>=3.3",
+    "httpx>=0.28",
+    "python-dateutil>=2.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-cov>=6.0",
+    "testcontainers[postgres]>=4.8",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "types-python-dateutil",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = false
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
