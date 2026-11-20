@@ -24,4 +24,4 @@
 
 ## Ссылки
 
-`concept.md` §14; REQ: ПСК-1, НФТ-8; `data-model.md` §8.
+`concept.md` §14; REQ: ПСК-1, НФТ-8; `data-model.md` §8 «chunks — чанки (текст + FTS + вектор)».

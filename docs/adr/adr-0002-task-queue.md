@@ -23,4 +23,4 @@
 
 ## Ссылки
 
-`concept.md` §13.1; REQ: ЧНК-1, НФТ-9; `data-model.md` §13 (jobs).
+`concept.md` §13.1; REQ: ЧНК-1, НФТ-9; `data-model.md` §13 «jobs — задачи пайплайна».

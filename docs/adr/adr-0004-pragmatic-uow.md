@@ -23,4 +23,4 @@
 
 ## Ссылки
 
-`code-standards.md` §2.2; REQ: НФТ-9; `data-model.md` §15.
+`code-standards.md` §2.2; REQ: НФТ-9; `data-model.md` §15 «Ключи идемпотентности — сводка».
