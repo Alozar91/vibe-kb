@@ -11,7 +11,7 @@
 - Базовый путь: `https://<host>/api/v1`.
 - Аутентификация: `Authorization: Bearer <JWT>` (Keycloak; проверка `iss`/`aud`/подписи по JWKS — АУТ-5).
 - **`Idempotency-Key: <uuid>`** (стандартный HTTP-заголовок):
-  - **обязателен** для `POST /materials` (загрузка файла) — АУТ/НФТ-9;
+  - **обязателен** для операций с загрузкой файла: `POST /materials` и `PATCH /materials/{id}/content` (НФТ-9);
   - фронтенд передаёт на **все** изменяющие операции; интеграции — рекомендован;
   - повтор с тем же ключом возвращает сохранённый результат (кэш в Valkey, TTL 24 ч) без повторного выполнения.
 - Формат ошибок: `application/problem+json` (RFC 9457): `{type, title, status, detail, instance}` + опциональные расширения (`violations` для валидации).
@@ -62,7 +62,7 @@
 |---|---|---|
 | `POST /groups/{id}/materials` | создание: multipart (`file` + JSON-поля: name, description, attributes, external_links, change_comment); заголовок `Idempotency-Key` **обязателен** | Редактор+ |
 | `GET /materials/{id}` | карточка: статусы, версии (список), атрибуты, ссылки, родитель | Читатель+ |
-| `PATCH /materials/{id}/content` | новая версия: multipart (`file?` + `description?`, `external_links?`, `attributes?`, `change_comment` обязателен); `If-Match: <current_version_id>` — optimistic locking | Редактор+ |
+| `PATCH /materials/{id}/content` | новая версия: multipart (`file?` + `description?`, `external_links?`, `attributes?`, `change_comment` обязателен); `If-Match: <current_version_id>` — optimistic locking; `Idempotency-Key` **обязателен** (НФТ-9) | Редактор+ |
 | `DELETE /materials/{id}` | soft-delete (только из Черновика) | Редактор+ (СТАТ-4) |
 | `POST /materials/{id}/copy` | копирование в `{target_group_id}` | Чтение в источнике + Редактор+ в целевой |
 | `POST /materials/{id}/move` | перемещение `{target_group_id}` | Редактор+ в обеих группах (МАТ-5) |
@@ -121,11 +121,11 @@ POST /api/v1/rag/query
 | `GET /admin/chunkers` | реестр: builtin+плагины, `code_hash`, `params_schema`, ошибки загрузки (ЧНК-8) |
 | `POST /admin/chunkers/reload` | перечитать каталог плагинов, обновить реестр (ЧНК-3) |
 | `GET/PUT /admin/settings` | настройки системы (лимиты, модели, дефолтный чанкер, события уведомлений) — не секреты (НФТ-5) |
-| `POST /admin/reindex` | запуск переиндексации: `{scope: "group"|"all", dry_run?}` — идемпотентно, прогресс в jobs (ЧНК-9) |
+| `POST /admin/reindex` | запуск переиндексации: `{scope: "group" или "all", dry_run?}` — идемпотентно, прогресс в jobs (ЧНК-9) |
 | `GET /admin/jobs` | задачи пайплайна: статусы, ошибки, ретраи |
 | `POST /admin/files/{file_id}/rescan` | повторный антивирус/переизвлечение текста (ЧНК-7) |
 | `GET /admin/audit` | журнал аудита (только чтение, НФТ-1) |
-| `POST /groups/{id}/restore` | восстановление группы (ГРП-4) |
+| `POST /admin/groups/{id}/restore` | восстановление группы (ГРП-4) |
 
 ## 8. MCP-сервер (Streamable HTTP, `/mcp`)
 

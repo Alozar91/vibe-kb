@@ -160,7 +160,7 @@ CREATE UNIQUE INDEX uq_materials_name_alive
 | chunker_name / chunker_version | text not null | кто и чем сгенерирован (ЧНК-3) |
 | text | text not null | |
 | metadata | jsonb | лист, диапазон строк, заголовки и т.п. |
-| tsv | tsvector | FTS-индекс (GIN); конфигурации ru/en — отдельные колонки `tsv_ru`, `tsv_en` (ПСК-5); названия/описания — в отдельных FTS-колонках (§8.1) |
+| `tsv_ru / tsv_en` | tsvector | FTS-индекс (GIN), конфигурации russian/english (ПСК-5); названия/описания — в отдельных FTS-колонках (§8.1) |
 | embedding | vector(dim) not null | pgvector; размерность — от модели эмбеддингов |
 
 - `unique (version_id, chunk_index, chunker_name)` — детерминированность; замена чанков версии — атомарно `delete … where version_id = …` + `insert` в одной транзакции (НФТ-9).
