@@ -125,7 +125,8 @@ POST /api/v1/rag/query
 | `GET /admin/jobs` | задачи пайплайна: статусы, ошибки, ретраи |
 | `POST /admin/files/{file_id}/rescan` | повторный антивирус/переизвлечение текста (ЧНК-7) |
 | `GET /admin/audit` | журнал аудита (только чтение, НФТ-1) |
-| `POST /admin/groups/{id}/restore` | восстановление группы (ГРП-4) |
+
+Восстановление группы — `POST /groups/{id}/restore` (§2, право — системный администратор).
 
 ## 8. MCP-сервер (Streamable HTTP, `/mcp`)
 
