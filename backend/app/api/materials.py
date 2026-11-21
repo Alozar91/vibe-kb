@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, U
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_principal, get_db
+from app.common import audit
 from app.common.db import UoW
 from app.common.idempotency import HEADER as IDEMPOTENCY_HEADER
 from app.common.security.jwt import Principal
@@ -55,6 +56,8 @@ def create_material(
             uow, principal, group_id, name, description, attrs, links, change_comment,
             content, file.filename or "file",
         )
+        audit.record(uow.session, _actor_id(uow.session, principal), "material.create",
+                     "material", m.id, {"group_id": str(group_id), "name": m.name})
         return MaterialOut.model_validate(m)
 
 
@@ -97,6 +100,8 @@ def patch_content(
             uow, principal, material_id, description, attrs, links, change_comment,
             content, file.filename if file else None, if_match,
         )
+        audit.record(uow.session, _actor_id(uow.session, principal), "material.version.upload",
+                     "material", material_id, {"version_id": str(v.id), "version_no": v.version_no})
         return VersionOut(
             id=v.id, material_id=v.material_id, version_no=v.version_no,
             description=v.description, external_links=list(v.external_links or []),
@@ -116,6 +121,7 @@ def delete_material(
 
     with UoW(session) as uow:
         service.delete_material(uow, principal, material_id)
+        audit.record(uow.session, _actor_id(uow.session, principal), "material.delete", "material", material_id)
     return Response(status_code=204)
 
 
@@ -170,6 +176,8 @@ def download_file(
     from fastapi.responses import Response as FastResponse
 
     content, filename = service.download_version(session, principal, version_id)
+    audit.record(session, _actor_id(session, principal), "file.download", "version", version_id)
+    session.commit()
     return FastResponse(
         content=content,
         media_type="application/octet-stream",
@@ -216,3 +224,11 @@ def unlink_parent(
     with UoW(session) as uow:
         service.unlink_parent(uow, principal, material_id)
     return Response(status_code=204)
+
+
+def _actor_id(session: Session, principal: Principal) -> uuid.UUID | None:
+    from sqlalchemy import text as _sql
+
+    return session.execute(
+        _sql("SELECT id FROM users WHERE keycloak_sub = :s"), {"s": principal.sub}
+    ).scalar()

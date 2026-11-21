@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_principal, get_db
+from app.common import audit
 from app.common.db import UoW
 from app.common.security.jwt import Principal
 from app.domain.statuses import service
@@ -41,6 +42,8 @@ def transition(
 
     with UoW(session) as uow:
         m = service.transition(uow, principal, material_id, payload.to, x_request_id)
+        audit.record(uow.session, None, "status.change", "material", m.id,
+                     {"from": "journal", "to": str(m.status)}, request_id=x_request_id)
         return TransitionOut(id=m.id, status=str(m.status), current_version_id=m.current_version_id)
 
 
