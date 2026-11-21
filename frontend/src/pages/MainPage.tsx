@@ -20,28 +20,69 @@ interface TreeNode {
   title: React.ReactNode
   key: string
   children?: TreeNode[]
-  navOnly?: boolean
+  isLeaf?: boolean
+}
+
+/** Состояние дерева: корни + загруженные дети по ключу родителя (ленивая загрузка ГРП-2). */
+interface TreeState {
+  roots: Group[]
+  childrenOf: Record<string, Group[]>
+  loaded: Record<string, boolean> // дети запрашивались (пустой список = узел лист)
 }
 
 export default function MainPage() {
   const navigate = useNavigate()
-  const [groups, setGroups] = useState<Group[]>([])
+  const [tree, setTree] = useState<TreeState>({ roots: [], childrenOf: {}, loaded: {} })
+  const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
   const [selected, setSelected] = useState<Group | null>(null)
   const [materials, setMaterials] = useState<Material[]>([])
   const [loading, setLoading] = useState(false)
   const [newGroupName, setNewGroupName] = useState('')
 
-  const loadRoots = () => groupsApi.roots().then(setGroups).catch((e) => message.error(errMsg(e)))
+  const loadRoots = () =>
+    groupsApi.roots()
+      .then((roots) => setTree((t) => ({ ...t, roots })))
+      .catch((e) => message.error(errMsg(e)))
+
+  const loadChildren = async (parentId: string): Promise<Group[]> => {
+    const children = await groupsApi.children(parentId)
+    setTree((t) => ({
+      ...t,
+      childrenOf: { ...t.childrenOf, [parentId]: children },
+      loaded: { ...t.loaded, [parentId]: true },
+    }))
+    return children
+  }
 
   useEffect(() => {
-    loadRoots()
+    void loadRoots()
   }, [])
 
-  const buildTreeData = (): TreeNode[] =>
-    groups.map((g) => ({ title: g.name, key: g.id, navOnly: g.nav_only, children: [] }))
+  /** Найти группу на любом уровне загруженного дерева. */
+  const findGroup = (list: Group[], id: string): Group | null => {
+    for (const g of list) {
+      if (g.id === id) return g
+      const inChild = findGroup(tree.childrenOf[g.id] ?? [], id)
+      if (inChild) return inChild
+    }
+    return null
+  }
+
+  const buildTreeData = (list: Group[]): TreeNode[] =>
+    list.map((g) => {
+      const kids = tree.childrenOf[g.id] ?? []
+      const children = kids.length > 0 ? buildTreeData(kids) : undefined
+      return {
+        title: g.name,
+        key: g.id,
+        // дети не загружены → узел раскрываемый (loadData); загружены и пусты → лист
+        isLeaf: tree.loaded[g.id] === true && kids.length === 0,
+        children,
+      }
+    })
 
   const onSelectGroup = async (key: string) => {
-    const g = groups.find((x) => x.id === key)
+    const g = findGroup(tree.roots, key)
     if (g) {
       if (g.nav_only) return // ПРВ-2: nav-only — только транзит
       setSelected(g)
@@ -50,7 +91,7 @@ export default function MainPage() {
         // материалы группы (api-spec §2: GET /groups/{id}/materials)
         setMaterials(await materialsApi.listForGroup(key))
       } catch {
-        setMaterials([]) // нет прав/пусто — молча, как раньше
+        setMaterials([]) // нет прав/пусто — молча
       } finally {
         setLoading(false)
       }
@@ -60,22 +101,36 @@ export default function MainPage() {
   const createGroup = async () => {
     if (!newGroupName.trim()) return
     try {
-      if (selected) await groupsApi.create(selected.id, newGroupName.trim(), null)
-      else await groupsApi.create(null, newGroupName.trim(), null)
+      const parentId = selected ? selected.id : null
+      await groupsApi.create(parentId, newGroupName.trim(), null)
       setNewGroupName('')
       message.success('Группа создана')
-      await loadRoots()
+      // обновляем уровень, куда добавили, и раскрываем родителя
+      if (parentId) {
+        await loadChildren(parentId)
+        setExpandedKeys((keys) => (keys.includes(parentId) ? keys : [...keys, parentId]))
+      } else {
+        await loadRoots()
+      }
     } catch (e: unknown) {
       message.error(errMsg(e))
     }
   }
 
   const deleteGroup = async (id: string) => {
+    const parentId = selected?.parent_id ?? null
     try {
       await groupsApi.remove(id)
       message.success('Группа удалена')
       setSelected(null)
-      await loadRoots()
+      // убираем удалённую из кэша детей
+      setTree((t) => {
+        const childrenOf = { ...t.childrenOf }
+        delete childrenOf[id]
+        return { ...t, childrenOf }
+      })
+      if (parentId) await loadChildren(parentId)
+      else await loadRoots()
     } catch (e: unknown) {
       message.error(errMsg(e))
     }
@@ -104,13 +159,14 @@ export default function MainPage() {
             <Button onClick={createGroup}>+</Button>
           </Space.Compact>
           <Tree
-            treeData={buildTreeData()}
+            treeData={buildTreeData(tree.roots)}
+            expandedKeys={expandedKeys}
+            onExpand={(keys) => setExpandedKeys(keys)}
+            selectedKeys={selected ? [selected.id] : []}
             loadData={async (node) => {
-              const children = await groupsApi.children(String(node.key))
-              node.children = children.map((c) => ({ title: c.name, key: c.id, navOnly: c.nav_only, children: [] }))
-              setGroups((prev) => prev) // перерисовка
+              await loadChildren(String(node.key))
             }}
-            onSelect={(keys) => keys[0] && onSelectGroup(String(keys[0]))}
+            onSelect={(keys) => keys[0] && void onSelectGroup(String(keys[0]))}
           />
         </Sider>
         <Content style={{ padding: 24 }}>
