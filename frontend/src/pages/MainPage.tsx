@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Layout, Table, Tree, Breadcrumb, Input, Space, message } from 'antd'
 import { Outlet, useNavigate } from 'react-router-dom'
-import { groupsApi, type Group, type Material } from '../shared/api/client'
+import { groupsApi, materialsApi, type Group, type Material } from '../shared/api/client'
 import { logout } from '../shared/api/auth'
 
 
@@ -47,10 +47,10 @@ export default function MainPage() {
       setSelected(g)
       setLoading(true)
       try {
-        // материалы группы: отдельного GET /groups/{id}/materials нет в списке? есть — api-spec §2
-        const resp = await fetch(`/api/v1/groups/${key}/materials`)
-        if (resp.ok) setMaterials(await resp.json())
-        else setMaterials([])
+        // материалы группы (api-spec §2: GET /groups/{id}/materials)
+        setMaterials(await materialsApi.listForGroup(key))
+      } catch {
+        setMaterials([]) // нет прав/пусто — молча, как раньше
       } finally {
         setLoading(false)
       }

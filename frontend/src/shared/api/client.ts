@@ -1,6 +1,10 @@
 /** API-клиент: fetch с Bearer-токеном и обработкой problem+json (ui-ux §2). */
 
-const API = '/api/v1'
+// База от vite base (/know/ на стенде и в проде, '/' в dev с прокси vite.config.ts):
+// import.meta.env.BASE_URL всегда заканчивается '/'.
+const API = `${import.meta.env.BASE_URL}api/v1`
+
+export { API }
 
 let accessToken = ''
 
@@ -63,6 +67,18 @@ export const api = {
   patchForm: <T>(path: string, form: FormData) =>
     request<T>(path, { method: 'PATCH', body: form }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
+  // Скачивание файла: <a href> не несёт Bearer-заголовок → 403; качаем blob с токеном.
+  // Имя файла берётся из Content-Disposition (download='' → имя сервера).
+  download: async (path: string): Promise<Blob> => {
+    const headers = new Headers()
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`)
+    const resp = await fetch(`${API}${path}`, { headers })
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => null)
+      throw new ApiError(resp.status, String(body?.detail ?? body?.title ?? `Ошибка ${resp.status}`))
+    }
+    return resp.blob()
+  },
 }
 
 // --- Типы домена (зеркала pydantic-схем api-spec) ---
@@ -145,6 +161,7 @@ export const groupsApi = {
 }
 
 export const materialsApi = {
+  listForGroup: (groupId: string) => api.get<Material[]>(`/groups/${groupId}/materials`),
   create: (groupId: string, form: FormData, idempotencyKey?: string) =>
     api.postForm<Material>(`/groups/${groupId}/materials`, form, idempotencyKey),
   get: (id: string) => api.get<Material>(`/materials/${id}`),
