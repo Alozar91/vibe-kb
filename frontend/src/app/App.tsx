@@ -1,19 +1,25 @@
 import { ConfigProvider } from 'antd'
 import ruRU from 'antd/locale/ru_RU'
 import { Navigate, Route, Routes } from 'react-router-dom'
+import MainPage from '../pages/MainPage'
+import MaterialPage from '../pages/MaterialPage'
+import MaterialFormPage from '../pages/MaterialFormPage'
+import SearchPage from '../pages/SearchPage'
 
 /**
- * Корневой компонент: Ant Design 5 (ru) + маршруты.
- * Роутер (BrowserRouter) подключается в main.tsx; в тестах — MemoryRouter.
+ * Маршруты Этапа 1 (ui-ux §1): главный экран (дерево+материалы), карточка,
+ * формы создания/версий, поиск. Роутер (BrowserRouter) подключается в main.tsx.
  */
 export default function App() {
   return (
     <ConfigProvider locale={ruRU}>
       <Routes>
-        <Route path="/" element={<main style={{ padding: 24 }}>
-          <h1>Корпоративная база знаний</h1>
-          <p>Каркас Этапа 0. Экраны — с Этапа 1 (см. docs/ui-ux.md).</p>
-        </main>} />
+        <Route path="/" element={<MainPage />}>
+          <Route path="groups/:gid/new-material" element={<MaterialFormPage />} />
+          <Route path="materials/:id" element={<MaterialPage />} />
+          <Route path="materials/:id/edit" element={<MaterialFormPage />} />
+          <Route path="search" element={<SearchPage />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ConfigProvider>
