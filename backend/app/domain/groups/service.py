@@ -55,6 +55,9 @@ def create_group(
     group.path = _build_path(session, parent, group.id, group.name)
     session.add(group)
     session.flush()
+    from app.domain.search.indexing import index_group
+
+    index_group(session, group.id)  # ПСК-1: name_tsv/description_tsv
     return group
 
 
@@ -81,6 +84,9 @@ def rename_group(uow: UoW, actor: Principal, group_id: uuid.UUID, name: str | No
     if description is not None:
         group.description = description
     session.flush()
+    from app.domain.search.indexing import index_group
+
+    index_group(session, group.id)  # ПСК-1: tsv при переименовании/описании
     return group
 
 

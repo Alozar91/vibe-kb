@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Response, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_principal, get_db
@@ -35,11 +35,11 @@ def _require_idempotency(idempotency_key: str | None) -> None:
 @router.post("/groups/{group_id}/materials", response_model=MaterialOut, status_code=201)
 def create_material(
     group_id: uuid.UUID,
-    name: str,
-    change_comment: str,
-    description: str | None = None,
-    attributes: str | None = None,
-    external_links: str | None = None,
+    name: str = Form(...),
+    change_comment: str = Form(...),
+    description: str | None = Form(default=None),
+    attributes: str | None = Form(default=None),
+    external_links: str | None = Form(default=None),
     file: UploadFile = File(...),
     idempotency_key: str | None = Header(default=None, alias=IDEMPOTENCY_HEADER),
     session: Session = Depends(get_db),
@@ -79,10 +79,10 @@ def get_material(
 @router.patch("/materials/{material_id}/content", response_model=VersionOut)
 def patch_content(
     material_id: uuid.UUID,
-    change_comment: str,
-    description: str | None = None,
-    attributes: str | None = None,
-    external_links: str | None = None,
+    change_comment: str = Form(...),
+    description: str | None = Form(default=None),
+    attributes: str | None = Form(default=None),
+    external_links: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     if_match: uuid.UUID | None = Header(default=None, alias="If-Match"),
     idempotency_key: str | None = Header(default=None, alias=IDEMPOTENCY_HEADER),

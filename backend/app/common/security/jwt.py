@@ -17,13 +17,14 @@ from app.common.errors import PermissionDenied
 
 @dataclass(frozen=True)
 class Principal:
-    """Аутентифицированный пользователь (маппинг на users.keycloak_sub — на Этапе 1)."""
+    """Аутентифицированный пользователь (маппинг на users.keycloak_sub — синхронизация при входе)."""
 
     sub: str
     username: str
     display_name: str
     email: str | None
     is_local: bool
+    realm_roles: frozenset[str] = frozenset()  # realm_access.roles (ПРВ-5: kb-admin)
 
 
 class _JwksCache:
@@ -37,7 +38,9 @@ class _JwksCache:
         settings = get_settings()
         now = time.monotonic()
         if not self._keys or now >= self._expires_at:
-            resp = httpx.get(f"{settings.keycloak_issuer}/protocol/openid-connect/certs", timeout=5.0)
+            # JWKS: внутренний base (контейнер → keycloak), fallback на issuer
+            base = settings.keycloak_internal_base or settings.keycloak_issuer
+            resp = httpx.get(f"{base}/protocol/openid-connect/certs", timeout=5.0)
             resp.raise_for_status()
             data = resp.json()
             self._keys = {k["kid"]: k for k in data.get("keys", [])}
@@ -62,10 +65,22 @@ def verify_token(token: str) -> Principal:
             token,
             key,
             algorithms=["RS256"],
-            audience=settings.keycloak_audiences.split(","),
+            options={
+                "require_aud": False,  # aud проверяем сами (пересечение списков, python-jose строг)
+                "require_exp": True,
+                "verify_signature": True,
+                "verify_aud": False,
+                "verify_iss": True,
+            },
             issuer=settings.keycloak_issuer,
-            options={"require_aud": True, "require_exp": True, "verify_signature": True},
         )
+        token_aud = claims.get("aud")
+        allowed = settings.keycloak_audiences.split(",")
+        auds = token_aud if isinstance(token_aud, list) else [token_aud]
+        if not (set(auds) & set(allowed)):
+            raise JWTError(f"audience {token_aud} не входит в допустимые {allowed}")
+        if not token_aud:
+            raise JWTError("aud отсутствует")
     except JWTError as e:
         raise PermissionDenied(f"Токен не прошёл проверку: {e}") from e
 
@@ -75,4 +90,5 @@ def verify_token(token: str) -> Principal:
         display_name=str(claims.get("name", claims.get("preferred_username", claims["sub"]))),
         email=claims.get("email"),
         is_local=True,  # LDAP/Kerberos — отложены (АУТ-3); уточняется при синхронизации users
+        realm_roles=frozenset(claims.get("realm_access", {}).get("roles", [])),
     )

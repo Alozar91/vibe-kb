@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     # Keycloak (АУТ-5)
     keycloak_issuer: str = "https://merch-vibe.ru/auth/realms/corp-kb"
     keycloak_audiences: str = "kb-web,kb-rag,kb-mcp"
+    # Внутренний base для JWKS-запросов (контейнер → keycloak); пусто — из issuer
+    keycloak_internal_base: str = ""
     jwks_cache_ttl: int = 300
 
     # Модели (OpenAI-compatible)

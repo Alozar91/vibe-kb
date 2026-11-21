@@ -29,7 +29,7 @@ DOC = ("Технический документ №{}: насосы центро
 
 
 def main() -> None:
-    e = create_engine(os.environ.get("KB_TEST_DB_URL", "postgresql+psycopg://kb:kb@localhost:5432/kb_test"))
+    e = create_engine(os.environ.get("KB_TEST_DB_URL", "postgresql+psycopg://kb:kb@localhost:5433/kb_test"))
     with e.connect() as c:
         for ext in ('"uuid-ossp"', "ltree", "vector"):
             c.execute(text(f"CREATE EXTENSION IF NOT EXISTS {ext}"))
