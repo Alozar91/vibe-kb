@@ -95,8 +95,41 @@ def transition(
             version.confirmed_by = _uid(session, actor.sub)
             version.confirmed_at = datetime.now(UTC)
 
+    # УВЕД-3: события статусов → доставки (идемпотентно, НФТ-9)
+    _notify_status_change(session, material, from_status, to_status)
+
     session.flush()
     return material
+
+
+def _notify_status_change(session: Session, material: Material, from_status: str, to_status: str) -> None:
+    """События УВЕД-3 при переходах статусов; сбой уведомлений не рвет транзакцию."""
+
+    import logging
+
+    code_by_to = {
+        "on_review": "material.sent_to_review",
+        "confirmed": "material.confirmed",
+        "draft": "material.returned_to_draft" if from_status == "on_review" else None,
+        "archived": "material.archived",
+    }
+    code = code_by_to.get(to_status)
+    if code is None:
+        return
+    try:
+        from app.domain.notifications import service as notifications
+
+        notifications.enqueue_event(
+            _uow_view(session), code, material.group_id, {"material_id": str(material.id)}
+        )
+    except Exception as e:  # noqa: BLE001 — УВЕД не блокирует СТАТ
+        logging.getLogger("kb.statuses").warning("уведомление не создано: %s", e)
+
+
+def _uow_view(session: Session) -> UoW:
+    """Обёртка сессии в UoW-интерфейс для enqueue_event (без повторного commit)."""
+
+    return UoW(session)
 
 
 def journal(session: Session, actor: Principal, material_id: uuid.UUID) -> list[dict]:
