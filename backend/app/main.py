@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api import api_router
@@ -46,6 +47,9 @@ app.add_middleware(
 app.add_middleware(IdempotencyMiddleware, cache=None)
 
 register_exception_handlers(app)
+
+# НФТ-6: метрики Prometheus на /metrics (kb_http_requests_total и др.)
+Instrumentator(excluded_handlers=["/metrics"]).instrument(app).expose(app, include_in_schema=False)
 
 
 app.include_router(api_router)

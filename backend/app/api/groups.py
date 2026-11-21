@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_principal, get_db
+from app.common import audit
 from app.common.db import UoW
 from app.common.errors import NotFound, PermissionDenied
 from app.common.security.jwt import Principal
@@ -64,6 +65,7 @@ def create_child(
 
     with UoW(session) as uow:
         group = service.create_group(uow, principal, group_id, payload.name, payload.description)
+        audit.record(uow.session, None, "group.create", "group", group.id, {"name": group.name})
         return GroupOut.model_validate(group)
 
 
@@ -91,6 +93,7 @@ def update_group(
 
     with UoW(session) as uow:
         group = service.rename_group(uow, principal, group_id, payload.name, payload.description)
+        audit.record(uow.session, None, "group.update", "group", group.id, {"name": group.name})
         return GroupOut.model_validate(group)
 
 
@@ -171,6 +174,7 @@ def revoke_role(
 
     with UoW(session) as uow:
         roles_service.revoke_role(uow, principal, group_id, user_id)
+        audit.record(uow.session, None, "role.revoke", "group", group_id, {"user_id": str(user_id)})
     return Response(status_code=204)
 
 

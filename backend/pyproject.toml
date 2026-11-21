@@ -21,6 +21,7 @@ dependencies = [
     "httpx>=0.28",
     "python-dateutil>=2.9",
     "mcp[cli]>=1.10,<2",
+    "prometheus-fastapi-instrumentator>=8.1.0",
 ]
 
 [project.optional-dependencies]
