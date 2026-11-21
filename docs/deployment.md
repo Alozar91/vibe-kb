@@ -132,7 +132,7 @@ docker compose -f docker-compose.test.yml up -d --build   # поднять вс�
 Особенности стенда (осознанные упрощения):
 
 - Keycloak: realm `corp-kb` импортируется из `keycloak/corp-kb-realm.json` при старте; JWT `sub` = username (маппер `oidc-usermodel-property-mapper` — Keycloak 26 «lean»-токены не содержат `sub` по умолчанию); `aud=account` даёт audience-mapper в client scope `basic` (в 26 провайдер называется `oidc-audience-mapper`); пароли: `alice/boris/vera/grigorij` + `-pass-2026`, у alice роль `kb-admin`.
-- Изоляция issuer/транспорта: `KB_KEYCLOAK_ISSUER` (внешний `http://localhost:8899/realms/corp-kb`, проверка `iss`) ≠ `KB_KEYCLOAK_INTERNAL_BASE` (внутренний `http://keycloak:8080/auth/realms/corp-kb`, JWKS-запросы из контейнера).
+- Изоляция issuer/транспорта: `KB_KEYCLOAK_ISSUER` (внешний `http://localhost:8899/auth/realms/corp-kb`, проверка `iss`) ≠ `KB_KEYCLOAK_INTERNAL_BASE` (внутренний `http://keycloak:8080/auth/realms/corp-kb`, JWKS-запросы из контейнера).
 - При пересоздании realm (DROP SCHEMA в БД `keycloak`) кэш JWKS в api устаревает → `docker compose -f docker-compose.test.yml restart api`.
 - Модели не настроены: эмбеддинги — детерминированные псевдовекторы (деградация в `embeddings.py`), LLM отсутствует → RAG возвращает цитаты, `answer` = «LLM не настроен»; превью офисных форматов — skip до Этапа 3 (converter-сервис).
 - Bootstrap (`app/bootstrap.py`, выполняется при старте api): миграции, пользователи, корневая группа «Корпоративная база знаний», роли, seed-справочники статусов.

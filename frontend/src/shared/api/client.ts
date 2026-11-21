@@ -37,7 +37,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const detail =
       body?.detail ?? body?.title ?? body?.['message'] ?? `Ошибка ${resp.status}`
     if (resp.status === 401) {
-      window.location.hash = '#/login'
+      window.location.assign(`${import.meta.env.BASE_URL}login`)
     }
     throw new ApiError(resp.status, String(detail))
   }
