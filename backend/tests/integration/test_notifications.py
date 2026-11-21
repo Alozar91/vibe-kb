@@ -7,7 +7,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.common.db import UoW
-from app.domain.groups import roles_service, service as groups_service
+from app.domain.groups import roles_service
+from app.domain.groups import service as groups_service
 from app.domain.notifications import service
 from app.models.pipeline import NotificationDelivery
 
