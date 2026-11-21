@@ -69,6 +69,32 @@ class TestCreateMaterial:
                 )
 
 
+class TestListGroupMaterials:
+    def test_lists_for_reader(self, db: Session, users, tree) -> None:
+        with UoW(db) as uow:
+            service.create_material(
+                uow, users["editor1"], tree["root"].id, "ДокА", None, None, None, "c", TXT, "a.pdf"
+            )
+            service.create_material(
+                uow, users["editor1"], tree["root"].id, "ДокБ", None, None, None, "c", TXT, "b.pdf"
+            )
+        mats = service.list_group_materials(db, users["reader1"], tree["root"].id)
+        # Читатель видит оба; обновлённые в одной транзакции → tie-break по имени
+        assert [m.name for m in mats] == ["ДокА", "ДокБ"]
+
+    def test_without_role_denied(self, db: Session, users, tree) -> None:
+        with pytest.raises(PermissionDenied):
+            service.list_group_materials(db, users["nobody"], tree["root"].id)
+
+    def test_deleted_hidden(self, db: Session, users, tree) -> None:
+        with UoW(db) as uow:
+            m = service.create_material(
+                uow, users["editor1"], tree["root"].id, "Удаляемый", None, None, None, "c", TXT, "x.pdf"
+            )
+            service.delete_material(uow, users["editor1"], m.id)
+        assert service.list_group_materials(db, users["editor1"], tree["root"].id) == []
+
+
 class TestVersions:
     def _mk(self, db: Session, users, tree) -> uuid.UUID:
         with UoW(db) as uow:

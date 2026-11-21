@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Descriptions, Tabs, Tag, Button, Popconfirm, Table, message, Space, List } from 'antd'
 import { useNavigate, useParams } from 'react-router-dom'
-import { materialsApi, type Material, type Version } from '../shared/api/client'
+import { api, materialsApi, type Material, type Version } from '../shared/api/client'
 
 
 function errMsg(e: unknown): string {
@@ -55,6 +55,22 @@ export default function MaterialPage() {
   }
 
   useEffect(load, [id])
+
+  const download = async (versionId: string) => {
+    try {
+      const blob = await api.download(`/versions/${versionId}/file`)
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = '' // имя из Content-Disposition
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      message.error(errMsg(e))
+    }
+  }
 
   const transition = async (to: string) => {
     if (!id) return
@@ -120,7 +136,7 @@ export default function MaterialPage() {
                 </Descriptions.Item>
                 <Descriptions.Item label="Антивирус">
                   {current.av_status === 'clean' || current.av_status === 'skipped_stub' ? (
-                    <Button href={`/api/v1/versions/${current.id}/file`} target="_blank">
+                    <Button onClick={() => download(current.id)}>
                       Скачать файл
                     </Button>
                   ) : (
@@ -148,7 +164,7 @@ export default function MaterialPage() {
                     title: 'Файл',
                     render: (_, v) =>
                       v.av_status === 'clean' || v.av_status === 'skipped_stub' ? (
-                        <a href={`/api/v1/versions/${v.id}/file`} target="_blank">скачать</a>
+                        <a onClick={() => download(v.id)} style={{ cursor: 'pointer' }}>скачать</a>
                       ) : 'скан…',
                   },
                 ]}

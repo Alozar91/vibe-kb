@@ -68,6 +68,21 @@ def name_taken(session: Session, group_id: uuid.UUID, name: str) -> bool:
     ).scalar() is not None
 
 
+def list_group_materials(session: Session, actor: Principal, group_id: uuid.UUID) -> list[Material]:
+    """Материалы группы (api-spec §2: GET /groups/{id}/materials; Читатель+)."""
+
+    if groups_repo.get_alive(session, group_id) is None:
+        raise NotFound("Группа не найдена")
+    require_role(session, actor, group_id, R_READ)
+    return (
+        session.query(Material)
+        .filter(Material.group_id == group_id, Material.is_deleted.is_(False))
+        # now() в Postgres транзакционный: при равных updated_at — стабильный tie-break по имени
+        .order_by(Material.updated_at.desc(), Material.name)
+        .all()
+    )
+
+
 def create_material(
     uow: UoW,
     actor: Principal,

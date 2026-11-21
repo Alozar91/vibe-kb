@@ -61,6 +61,20 @@ def create_material(
         return MaterialOut.model_validate(m)
 
 
+@router.get("/groups/{group_id}/materials", response_model=list[MaterialOut])
+def list_group_materials(
+    group_id: uuid.UUID,
+    session: Session = Depends(get_db),
+    principal: Principal = Depends(get_current_principal),
+):
+    """Материалы группы (api-spec §2; Читатель+)."""
+
+    return [
+        MaterialOut.model_validate(m)
+        for m in service.list_group_materials(session, principal, group_id)
+    ]
+
+
 @router.get("/materials/{material_id}", response_model=MaterialOut)
 def get_material(
     material_id: uuid.UUID,
