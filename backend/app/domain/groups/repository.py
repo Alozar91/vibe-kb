@@ -97,7 +97,7 @@ def subtree_update_paths(
         """
         UPDATE groups
         SET path = :new_path || subpath(path, nlevel(:old_path))
-        WHERE path <@ :old_path::ltree
+        WHERE path <@ CAST(:old_path AS ltree)
         """
     )
     session.execute(q, {"old_path": old_path, "new_path": new_path})

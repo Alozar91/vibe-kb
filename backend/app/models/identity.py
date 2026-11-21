@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVector
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +41,9 @@ class Group(PkMixin, AuditMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     path: Mapped[str] = mapped_column(Ltree, nullable=False)
+    # FTS (data-model §8.1): по названию/описанию группы, заполняется сервисно
+    name_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
+    description_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)

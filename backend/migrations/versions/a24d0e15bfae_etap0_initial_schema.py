@@ -289,6 +289,11 @@ def upgrade() -> None:
     op.execute("CREATE INDEX ix_chunks_embedding_hnsw ON chunks USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops)")
     # GIN по metadata чанков
     op.execute("CREATE INDEX ix_chunks_metadata ON chunks USING gin (metadata)")
+    # FTS-колонки чанков (data-model §8)
+    op.execute("ALTER TABLE chunks ADD COLUMN tsv_ru tsvector")
+    op.execute("ALTER TABLE chunks ADD COLUMN tsv_en tsvector")
+    op.execute("CREATE INDEX ix_chunks_tsv_ru ON chunks USING gin (tsv_ru)")
+    op.execute("CREATE INDEX ix_chunks_tsv_en ON chunks USING gin (tsv_en)")
 
 
 def downgrade() -> None:
@@ -303,6 +308,10 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_material_versions_description_tsv")
     op.execute("DROP INDEX IF EXISTS ix_groups_name_tsv")
     op.execute("DROP INDEX IF EXISTS ix_groups_description_tsv")
+    op.execute("DROP INDEX IF EXISTS ix_chunks_tsv_en")
+    op.execute("DROP INDEX IF EXISTS ix_chunks_tsv_ru")
+    op.execute("ALTER TABLE chunks DROP COLUMN IF EXISTS tsv_en")
+    op.execute("ALTER TABLE chunks DROP COLUMN IF EXISTS tsv_ru")
     op.execute("DROP INDEX IF EXISTS ix_chunks_metadata")
     op.execute("DROP INDEX IF EXISTS ix_chunks_embedding_hnsw")
     op.execute("ALTER TABLE groups DROP COLUMN IF EXISTS name_tsv, DROP COLUMN IF EXISTS description_tsv")

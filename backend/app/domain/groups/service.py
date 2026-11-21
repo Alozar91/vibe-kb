@@ -100,7 +100,7 @@ def move_group(uow: UoW, actor: Principal, group_id: uuid.UUID, new_parent_id: u
             raise NotFound("Новая родительская группа не найдена")
         require_role(session, actor, new_parent_id, R_OWN)
         # ГРП-1: цикл = новая родительская внутри поддерева перемещаемой
-        q = text("SELECT 1 FROM groups WHERE id = :pid AND path <@ :gpath::ltree")
+        q = text("SELECT 1 FROM groups WHERE id = :pid AND path <@ CAST(:gpath AS ltree)")
         if session.execute(q, {"pid": str(new_parent_id), "gpath": group.path}).scalar():
             raise CycleError("Нельзя переместить группу внутрь самой себя")
 
