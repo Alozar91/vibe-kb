@@ -132,6 +132,9 @@ def create_material(
     session.flush()
     material.current_version_id = version.id
     session.flush()
+    from app.domain.search.indexing import index_material
+
+    index_material(session, material.id)  # ПСК-1: name_tsv
     _schedule_pipeline(version.id)
     return material
 
@@ -278,6 +281,9 @@ def copy_material(uow: UoW, actor: Principal, material_id: uuid.UUID, target_gro
     session.flush()
     copy.current_version_id = version.id
     session.flush()
+    from app.domain.search.indexing import index_material
+
+    index_material(session, copy.id)  # ПСК-1: name_tsv
     return copy
 
 
@@ -369,7 +375,7 @@ def list_versions(session: Session, actor: Principal, material_id: uuid.UUID) ->
     rows = session.execute(
         text(
             """
-            SELECT v.id::text, v.version_no, v.description, v.external_links, v.attributes,
+            SELECT v.id::text, v.material_id::text, v.version_no, v.description, v.external_links, v.attributes,
                    v.change_comment, v.created_by::text, v.created_at, v.file_sha256,
                    v.chunker_name, f.av_status::text, f.text_extracted::text,
                    (f.preview_key IS NOT NULL) AS preview_ready

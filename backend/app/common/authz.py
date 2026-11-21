@@ -30,8 +30,10 @@ R_OWN = 4
 
 
 def is_admin(principal: Principal) -> bool:
-    """Системный администратор (ПРВ-5): пока через env KB_ADMIN_SUBS (bootstrap-прощение)."""
+    """Системный администратор (ПРВ-5): realm-роль kb-admin (Keycloak) ИЛИ env KB_ADMIN_SUBS (bootstrap/dev)."""
 
+    if "kb-admin" in principal.realm_roles:
+        return True
     subs = {s.strip() for s in get_settings().admin_subs.split(",") if s.strip()}
     return principal.sub in subs
 

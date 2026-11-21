@@ -1,0 +1,136 @@
+# Тестовый стенд: полный состав (deployment.md §1) на Docker Desktop (WSL).
+# Запуск: docker compose -f docker-compose.test.yml up -d --build
+name: vibe-kb-test
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: kb
+      POSTGRES_PASSWORD: kb
+      POSTGRES_DB: kb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kb -d kb"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  valkey:
+    image: valkey/valkey:9
+    ports:
+      - "6380:6379"
+    volumes:
+      - valkey_data:/data
+    command: ["valkey-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  silo:
+    image: pgsty/silo:latest
+    command: ["server", "/data", "--console-address", ":9001"]
+    ports:
+      - "9010:9000"
+    environment:
+      MINIO_ROOT_USER: kbadmin
+      MINIO_ROOT_PASSWORD: kbadmin123
+    volumes:
+      - silo_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev", "--import-realm", "--http-relative-path", "/auth", "--hostname", "http://localhost:8899"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: kb
+      KC_DB_PASSWORD: kb
+      KC_HOSTNAME_STRICT: "false"
+    volumes:
+      - ./keycloak/corp-kb-realm.json:/opt/keycloak/data/import/realm.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build: ./backend
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run python -m app.bootstrap &&
+             uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      KB_DB_URL: postgresql+psycopg://kb:kb@postgres:5432/kb
+      KB_VALKEY_URL: redis://valkey:6379/0
+      KB_S3_ENDPOINT: http://silo:9000
+      KB_S3_ACCESS_KEY: kbadmin
+      KB_S3_SECRET_KEY: kbadmin123
+      KB_KEYCLOAK_ISSUER: http://localhost:8899/realms/corp-kb
+      KB_KEYCLOAK_INTERNAL_BASE: http://keycloak:8080/auth/realms/corp-kb
+      KB_KEYCLOAK_AUDIENCES: account,kb-web,kb-rag,kb-mcp
+      KB_ADMIN_SUBS: "alice"
+      KB_DEBUG: "true"
+      KB_EMBEDDINGS_BASE_URL: ""
+    ports:
+      - "18000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+      silo:
+        condition: service_healthy
+
+  worker:
+    build: ./backend
+    command: >
+      sh -c "uv run celery -A app.workers.celery_app.celery_app worker -Q kb -l info --concurrency 2"
+    environment:
+      KB_DB_URL: postgresql+psycopg://kb:kb@postgres:5432/kb
+      KB_VALKEY_URL: redis://valkey:6379/0
+      KB_S3_ENDPOINT: http://silo:9000
+      KB_S3_ACCESS_KEY: kbadmin
+      KB_S3_SECRET_KEY: kbadmin123
+      KB_ADMIN_SUBS: "alice"
+      KB_DEBUG: "true"
+      KB_EMBEDDINGS_BASE_URL: ""
+    depends_on:
+      - api
+
+  mcp:
+    build: ./backend
+    command: ["uv", "run", "uvicorn", "app.mcp.main:app", "--host", "0.0.0.0", "--port", "8100"]
+    environment:
+      KB_DB_URL: postgresql+psycopg://kb:kb@postgres:5432/kb
+      KB_KEYCLOAK_ISSUER: http://localhost:8899/realms/corp-kb
+      KB_KEYCLOAK_INTERNAL_BASE: http://keycloak:8080/auth/realms/corp-kb
+      KB_KEYCLOAK_AUDIENCES: account,kb-web,kb-rag,kb-mcp
+      KB_ADMIN_SUBS: "alice"
+      KB_DEBUG: "true"
+    depends_on:
+      - api
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8899:80"
+    depends_on:
+      - api
+      - mcp
+
+volumes:
+  pg_data:
+  valkey_data:
+  silo_data:

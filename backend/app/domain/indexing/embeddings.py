@@ -21,7 +21,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
 
     s = get_settings()
     if not s.embeddings_base_url:
-        raise RuntimeError("KB_EMBEDDINGS_BASE_URL не настроен")
+        # Деградация (dev/стенд без моделей): детерминированные псевдовекторы —
+        # пайплайн не падает (ЧНК-1), векторный поиск механически работает.
+        return [_stub_vector_list(t, s.embeddings_dims) for t in texts]
     data = _post(
         f"{s.embeddings_base_url.rstrip('/')}/embeddings",
         {"model": s.embeddings_model, "input": texts},
@@ -68,6 +70,8 @@ def chat_completion(messages: list[dict], max_tokens: int = 1024) -> str:
 
     s = get_settings()
     base = getattr(s, "llm_base_url", "") or s.embeddings_base_url
+    if not base:
+        raise RuntimeError("LLM не настроен (KB_LLM_BASE_URL/KB_EMBEDDINGS_BASE_URL пусты)")
     key = getattr(s, "llm_api_key", "") or s.embeddings_api_key
     model = getattr(s, "llm_model", "") or s.embeddings_model
     data = _post(

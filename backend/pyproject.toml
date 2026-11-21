@@ -13,6 +13,7 @@ dependencies = [
     "pydantic>=2.10",
     "pydantic-settings>=2.6",
     "celery>=5.4",
+    "packaging>=23",             # требуется kombu/redis-транспорту Celery
     "valkey-glide>=1.1",        # может быть заменён на redis-py; см. settings
     "redis>=5.2",               # Celery-брокер/кэш (протокол Redis = Valkey)
     "boto3>=1.35",              # S3-совместимое хранилище (Silo)

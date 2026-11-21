@@ -118,6 +118,26 @@ KB_IDEMPOTENCY_TTL_HOURS=24
 6. `docker compose up -d api worker beat mcp converter frontend`.
 7. Smoke-тест: `/api/v1/health` 200; вход локальным пользователем; загрузка тестового файла (пройти полный пайплайн); поиск находит; скачивание отдаёт оригинал; аудиторская запись создана.
 
+### 5.1 Автоматизированный тестовый стенд (docker-compose.test.yml)
+
+Полный стенд одним файлом — `docker-compose.test.yml` (postgres/valkey/silo/keycloak/api/worker/mcp/frontend); сервисы собираются из `backend/Dockerfile` и `frontend/Dockerfile`. Портов наружу: frontend/keycloak через nginx — `8899`, api — `18000`, postgres — `5433`, valkey — `6380`, silo — `9010` (сдвинуты, чтобы не конфликтовать с dev-стендом).
+
+```bash
+docker compose -f docker-compose.test.yml up -d --build   # поднять всё
+./scripts/e2e-smoke.sh                                     # E2E-проверка (10 шагов)
+```
+
+Скрипт `scripts/e2e-smoke.sh` проходит чек-лист §5 автоматически: токены 4 пользователей через password grant (`scope=openid` обязателен — Keycloak 26 без него не отдаёт `sub`), health, `groups/roots`, загрузка материала с `Idempotency-Key`, версии, ожидание пайплайна, fulltext-поиск, скачивание (AV-гейт), запрет создания под Reader (403), RAG с цитатами.
+
+Особенности стенда (осознанные упрощения):
+
+- Keycloak: realm `corp-kb` импортируется из `keycloak/corp-kb-realm.json` при старте; JWT `sub` = username (маппер `oidc-usermodel-property-mapper` — Keycloak 26 «lean»-токены не содержат `sub` по умолчанию); `aud=account` даёт audience-mapper в client scope `basic` (в 26 провайдер называется `oidc-audience-mapper`); пароли: `alice/boris/vera/grigorij` + `-pass-2026`, у alice роль `kb-admin`.
+- Изоляция issuer/транспорта: `KB_KEYCLOAK_ISSUER` (внешний `http://localhost:8899/realms/corp-kb`, проверка `iss`) ≠ `KB_KEYCLOAK_INTERNAL_BASE` (внутренний `http://keycloak:8080/auth/realms/corp-kb`, JWKS-запросы из контейнера).
+- При пересоздании realm (DROP SCHEMA в БД `keycloak`) кэш JWKS в api устаревает → `docker compose -f docker-compose.test.yml restart api`.
+- Модели не настроены: эмбеддинги — детерминированные псевдовекторы (деградация в `embeddings.py`), LLM отсутствует → RAG возвращает цитаты, `answer` = «LLM не настроен»; превью офисных форматов — skip до Этапа 3 (converter-сервис).
+- Bootstrap (`app/bootstrap.py`, выполняется при старте api): миграции, пользователи, корневая группа «Корпоративная база знаний», роли, seed-справочники статусов.
+
+
 ## 6. Приёмочный стенд (отличия от dev)
 
 - TLS на nginx + hostname = SPN из AD-2/AD-3 (`auth-setup.md`).

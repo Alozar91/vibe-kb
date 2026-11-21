@@ -168,6 +168,9 @@ def step_chunk(session, version_id: uuid.UUID) -> None:
         )
     version.chunker_name = chunker_name
     version.chunker_version = "1"
+    from app.domain.search.indexing import index_chunks
+
+    index_chunks(session, version_id)  # ПСК-1: tsv чанков для полнотекстового поиска
     session.commit()
     _last_chunk_warning[0] = warning  # ЧНК-8: оркестратор заберёт после вызова
 

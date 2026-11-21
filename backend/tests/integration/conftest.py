@@ -18,8 +18,15 @@ from app.common.security.jwt import Principal
 from app.models import Base
 
 TEST_DB_URL = os.environ.get(
-    "KB_TEST_DB_URL", "postgresql+psycopg://kb:kb@localhost:5432/kb_test"
+    "KB_TEST_DB_URL", "postgresql+psycopg://kb:kb@localhost:5433/kb_test"
 )
+
+# Инфраструктура тестового стенда (docker-compose.test.yml): порты наружу
+os.environ.setdefault("KB_S3_ENDPOINT", "http://localhost:9010")
+os.environ.setdefault("KB_S3_ACCESS_KEY", "kbadmin")
+os.environ.setdefault("KB_S3_SECRET_KEY", "kbadmin123")
+os.environ.setdefault("KB_VALKEY_URL", "redis://localhost:6380/0")
+os.environ.setdefault("KB_EMBEDDINGS_BASE_URL", "")
 
 # Тестовый админ (ПРВ-5/8) до первого вызова get_settings (lru_cache)
 os.environ.setdefault("KB_ADMIN_SUBS", "sub-admin")
