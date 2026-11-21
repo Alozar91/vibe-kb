@@ -1,5 +1,10 @@
 """Фикстуры тестов: TestClient с заглушкой engine (Этап 0 — без БД)."""
 
+import os
+
+# Тестовый админ (ПРВ-5/8) — до первого get_settings (lru_cache)
+os.environ.setdefault("KB_ADMIN_SUBS", "sub-admin")
+
 from collections.abc import Iterator
 
 import pytest

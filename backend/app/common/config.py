@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     # Идемпотентность (НФТ-9)
     idempotency_ttl_hours: int = 24
 
+    # Системные админы (ПРВ-5, bootstrap): keycloak sub через запятую
+    admin_subs: str = ""
+
     # Загрузка (НФТ-5; дефолт, переопределяется настройками в БД)
     upload_max_size_mb: int = 50
 
