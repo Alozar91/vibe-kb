@@ -10,12 +10,11 @@ from sqlalchemy.orm import Session
 from app.common.db import UoW
 from app.common.errors import (
     NameConflict,
-    NotFound,
     NothingChanged,
     PermissionDenied,
 )
-from app.common.security.jwt import Principal
-from app.domain.groups import roles_service, service as groups_service
+from app.domain.groups import roles_service
+from app.domain.groups import service as groups_service
 from app.domain.materials import service
 
 pytestmark = pytest.mark.usefixtures("users")

@@ -7,8 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.common.authz import effective_role, visible_group_ids
 from app.common.db import UoW
-from app.common.errors import PermissionDenied
-from app.common.security.jwt import Principal
 from app.domain.groups import roles_service, service
 from app.models.identity import Group
 
@@ -81,8 +79,9 @@ class TestHierarchy:
         assert all(g.id in vis for g in tree.values())
 
 
-from app.common.errors import NotFound  # noqa: E402
 import uuid  # noqa: E402
+
+from app.common.errors import NotFound  # noqa: E402
 
 
 def _uid(db: Session, sub: str):

@@ -11,8 +11,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.common.db import UoW
-from app.common.errors import CycleError, NameConflict, NotFound, PermissionDenied
-from app.common.security.jwt import Principal
+from app.common.errors import NameConflict, PermissionDenied
 from app.domain.groups import roles_service, service
 from app.models.identity import Group
 
