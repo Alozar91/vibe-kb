@@ -136,9 +136,11 @@ def _load_extracted(session, version_id: uuid.UUID) -> str:
     return row.value.get("text", "") if row else ""
 
 
+_last_chunk_warning: list[str | None] = [None]  # ЧНК-8: warning последнего chunk-шага
+
+
 def step_chunk(session, version_id: uuid.UUID) -> None:
     """Чанкование (ЧНК-2/4/5): resolved-чанкер группы, атомарная замена чанков версии."""
-
     from app.models.materials import Material, MaterialVersion
 
     version = session.get(MaterialVersion, version_id)
@@ -148,7 +150,7 @@ def step_chunk(session, version_id: uuid.UUID) -> None:
 
     text = _load_extracted(session, version_id)
     chunker_name, params = resolve_chunker(session, material.group_id)
-    chunks = run_chunker(chunker_name, params, text)
+    chunks, warning = run_chunker(chunker_name, params, text)
 
     # атомарная замена (НФТ-9): delete + insert в одной транзакции
     session.query(Chunk).filter_by(version_id=version_id, chunker_name=chunker_name).delete()
@@ -167,6 +169,7 @@ def step_chunk(session, version_id: uuid.UUID) -> None:
     version.chunker_name = chunker_name
     version.chunker_version = "1"
     session.commit()
+    _last_chunk_warning[0] = warning  # ЧНК-8: оркестратор заберёт после вызова
 
 
 def step_embed(session, version_id: uuid.UUID) -> None:
@@ -220,8 +223,12 @@ def run_pipeline_for_version(version_id: uuid.UUID) -> None:
                     "embed": step_embed,
                     "preview": step_preview,
                 }[step]
+                _last_chunk_warning[0] = None
                 handler(session, version_id)
                 _done(session, job)
+                if step == "chunk" and _last_chunk_warning[0]:  # ЧНК-8: fallback, статус done
+                    job.error = str(_last_chunk_warning[0])[:2000]
+                    session.commit()
             except Exception as e:  # noqa: BLE001 — фиксируем в jobs (ЧНК-1: сбой не блокирует скачивание)
                 _fail(session, job, str(e))
                 break  # следующий шаг без результата предыдущего невозможен

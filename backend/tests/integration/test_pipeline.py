@@ -90,24 +90,31 @@ class TestChunkers:
 
         text = "Абзац один. " * 100
         for name in CHUNKERS:
-            a = run_chunker(name, {}, text)
-            b = run_chunker(name, {}, text)
+            a, _ = run_chunker(name, {}, text)
+            b, _ = run_chunker(name, {}, text)
             assert [c["text"] for c in a] == [c["text"] for c in b]
 
+    def test_unknown_chunker_falls_back(self) -> None:
+        """ЧНК-8: несуществующий чанкер → дефолт + предупреждение."""
+
+        chunks, warning = run_chunker("нет-такого", {}, "текст проверки")
+        assert warning is not None and "ЧНК-8" in warning
+        assert chunks  # дефолт отработал
+
     def test_parent_child_has_parents(self) -> None:
-        chunks = run_chunker("parent_child", {}, "предложение. " * 200)
+        chunks, _ = run_chunker("parent_child", {}, "предложение. " * 200)
         parents = [c for c in chunks if c["metadata"].get("parent_index") is None]
         children = [c for c in chunks if c["metadata"].get("parent_index") is not None]
         assert parents and children
 
     def test_tables_repeats_header(self) -> None:
         csv = "id,name\n1,насос\n2,клапан\n3,задвижка\n"
-        chunks = run_chunker("tables", {"rows_per_chunk": 2}, csv)
+        chunks, _ = run_chunker("tables", {"rows_per_chunk": 2}, csv)
         assert all(c["text"].startswith("id,name") for c in chunks)
 
     def test_markdown_headers(self) -> None:
         md = "# Введение\nТекст один.\n## Детали\nТекст два."
-        chunks = run_chunker("markdown", {}, md)
+        chunks, _ = run_chunker("markdown", {}, md)
         assert any("Введение" in c["text"] for c in chunks)
 
 

@@ -20,6 +20,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "httpx>=0.28",
     "python-dateutil>=2.9",
+    "mcp[cli]>=1.10,<2",
 ]
 
 [project.optional-dependencies]
