@@ -78,8 +78,7 @@ def transition(
                 """
                 SELECT array_agg(gr.user_id::text)
                 FROM group_roles gr
-                JOIN groups g_target ON g_target.id = :gid
-                JOIN groups anc ON anc.path @> g_target.path
+                JOIN groups anc ON anc.path @> (SELECT path FROM groups WHERE id = :gid)
                 WHERE gr.role = 'reviewer' AND gr.group_id = anc.id
                 """
             ),

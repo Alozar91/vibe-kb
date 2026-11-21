@@ -38,7 +38,7 @@ def list_roles(session: Session, actor: Principal, group_id: uuid.UUID) -> list[
             FROM group_roles gr
             JOIN users u ON u.id = gr.user_id
             JOIN groups g ON g.id = :gid
-            JOIN groups anc ON anc.id = gr.group_id AND g.path @> anc.path AND anc.id != :gid
+            JOIN groups anc ON anc.id = gr.group_id AND anc.path @> g.path AND anc.id != :gid
             ORDER BY u.username
             """
         ),

@@ -46,7 +46,7 @@ class Chunk(PkMixin, Base):
     # FTS-колонки (data-model §8): tsvector russian/english, заполняются сервисно
     tsv_ru: Mapped[str | None] = mapped_column(TSVector, nullable=True)
     tsv_en: Mapped[str | None] = mapped_column(TSVector, nullable=True)
-    embedding: Mapped[Vector] = mapped_column(Vector(EMBEDDING_DIMS), nullable=False)
+    embedding: Mapped[Vector | None] = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("version_id", "chunk_index", "chunker_name", name="uq_chunks_version_index_chunker"),
