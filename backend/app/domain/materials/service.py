@@ -30,6 +30,27 @@ def _uid(session: Session, sub: str) -> uuid.UUID:
     ).scalar_one()
 
 
+def _schedule_pipeline(version_id: uuid.UUID) -> None:
+    """ЧНК-1: автоматический запуск пайплайна после фиксации версии.
+
+    Celery-задача, если брокер настроен; иначе (тесты/dev без Valkey) — синхронный вызов.
+    Ошибка постановки не рвет основную транзакцию (сбой индексации не блокирует материал).
+    """
+
+    import logging
+
+    log = logging.getLogger("kb.materials")
+    try:
+        from app.workers.celery_app import run_pipeline_task
+
+        run_pipeline_task.delay(str(version_id))
+    except Exception as exc:  # noqa: BLE001 — брокер недоступен
+        log.warning("очередь недоступна (%s); пайплайн версии %s — синхронно", exc, version_id)
+        from app.workers.pipeline import run_pipeline_for_version
+
+        run_pipeline_for_version(version_id)
+
+
 def _get_alive(session: Session, material_id: uuid.UUID) -> Material:
     m = session.query(Material).filter(Material.id == material_id, Material.is_deleted.is_(False)).first()
     if m is None:
@@ -111,6 +132,7 @@ def create_material(
     session.flush()
     material.current_version_id = version.id
     session.flush()
+    _schedule_pipeline(version.id)
     return material
 
 
@@ -191,6 +213,7 @@ def patch_content(
     session.flush()
     material.current_version_id = version.id
     session.flush()
+    _schedule_pipeline(version.id)
     return version
 
 

@@ -76,8 +76,6 @@ class TestSteps:
         """ЧНК-1: все шаги дают DONE; сбой шага → FAILED + attempts++."""
 
         vid = material["material"].current_version_id
-        from app.workers.pipeline import _session_factory
-        print("WORKER URL engine:", _session_factory._engine.url)
         run_pipeline_for_version(vid)
         jobs = db.query(Job).filter_by(version_id=vid).all()
         by_step = {str(j.step): j.status for j in jobs}
