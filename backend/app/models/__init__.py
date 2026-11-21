@@ -45,6 +45,7 @@ __all__ = [
     "User",
     "Group",
     "GroupRoleModel",
+    "ChunkerConfig",
     # materials
     "AttributeDef",
     "Material",

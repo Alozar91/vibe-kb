@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Text, UniqueConstraint
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, Base, PkMixin
@@ -40,6 +41,9 @@ class Group(PkMixin, AuditMixin, Base):
     name: Mapped[str] = mapped_column(Text, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     path: Mapped[str] = mapped_column(Ltree, nullable=False)
+    # FTS (data-model §8.1): по названию/описанию группы, заполняется сервисно
+    name_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
+    description_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
@@ -59,3 +63,15 @@ class GroupRole(PkMixin, Base):
     role: Mapped[GroupRoleEnum] = mapped_column(ROLE_ENUM, nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "group_id", name="uq_group_roles_user_group"),)
+
+
+class ChunkerConfig(PkMixin, AuditMixin, Base):
+    """Настройка чанкера группы (data-model §2.1, ЧНК-4/ГРП-5): 0..1 на группу."""
+
+    __tablename__ = "chunker_configs"
+
+    group_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("groups.id"), unique=True, nullable=False
+    )
+    chunker_name: Mapped[str] = mapped_column(Text, nullable=False)
+    params: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)

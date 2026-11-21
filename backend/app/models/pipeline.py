@@ -6,6 +6,7 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import BigInteger, Boolean, DateTime, Enum, ForeignKey, Integer, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, PkMixin
@@ -42,7 +43,10 @@ class Chunk(PkMixin, Base):
     chunker_version: Mapped[str] = mapped_column(Text, nullable=False)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
-    embedding: Mapped[Vector] = mapped_column(Vector(EMBEDDING_DIMS), nullable=False)
+    # FTS-колонки (data-model §8): tsvector russian/english, заполняются сервисно
+    tsv_ru: Mapped[str | None] = mapped_column(TSVector, nullable=True)
+    tsv_en: Mapped[str | None] = mapped_column(TSVector, nullable=True)
+    embedding: Mapped[Vector | None] = mapped_column(Vector(EMBEDDING_DIMS), nullable=True)
 
     __table_args__ = (
         UniqueConstraint("version_id", "chunk_index", "chunker_name", name="uq_chunks_version_index_chunker"),

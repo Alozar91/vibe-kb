@@ -3,14 +3,20 @@
 Sync-first: всё синхронно; async не используется в слое БД.
 """
 
+from __future__ import annotations
+
 from collections.abc import Iterator
 from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.common.config import get_settings
+
+if TYPE_CHECKING:
+    pass
 
 
 def create_db_engine(db_url: str | None = None) -> Engine:
@@ -29,7 +35,8 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
 class UoW:
     """Прагматичный UoW (ADR-0004): сессия = транзакция; commit/rollback явные.
 
-    Сервис принимает UoW (или Session), репозитории — сессию из него.
+    Поддерживает with-семантику: `with UoW(session) as uow:` — commit при выходе
+    без исключений, rollback при исключении (используется в api-обработчиках).
     """
 
     def __init__(self, session: Session) -> None:
@@ -43,6 +50,15 @@ class UoW:
 
     def close(self) -> None:
         self.session.close()
+
+    def __enter__(self) -> UoW:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
 
 
 @contextmanager

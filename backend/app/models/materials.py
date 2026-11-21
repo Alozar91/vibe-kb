@@ -15,6 +15,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import TSVECTOR as TSVector
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import AuditMixin, Base, PkMixin
@@ -64,6 +65,8 @@ class Material(PkMixin, AuditMixin, Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     deleted_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    # FTS (data-model §8.1): заполняется сервисно при переименовании
+    name_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
 
 
 class MaterialVersion(PkMixin, Base):
@@ -86,12 +89,14 @@ class MaterialVersion(PkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
-    reviewers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    reviewers: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     chunker_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     chunker_version: Mapped[str | None] = mapped_column(Text, nullable=True)
     file_sha256: Mapped[str] = mapped_column(Text, nullable=False)
+    # FTS (data-model §8.1): по описаниям, заполняется при создании версии
+    description_tsv: Mapped[str | None] = mapped_column(TSVector, nullable=True)
 
 
 class File(PkMixin, Base):

@@ -1,1 +1,1 @@
-{"root":["./src/main.tsx","./src/app/App.tsx"],"version":"5.6.3"}
+{"root":["./src/main.tsx","./src/app/App.tsx","./src/pages/MainPage.tsx","./src/pages/MaterialFormPage.tsx","./src/pages/MaterialPage.tsx","./src/pages/SearchPage.tsx","./src/shared/api/auth.ts","./src/shared/api/client.ts"],"version":"5.6.3"}

@@ -184,6 +184,17 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint("id", name=op.f("pk_group_roles")),
     sa.UniqueConstraint("user_id", "group_id", name="uq_group_roles_user_group")
     )
+    op.create_table("chunker_configs",
+    sa.Column("group_id", sa.UUID(), nullable=False),
+    sa.Column("chunker_name", sa.Text(), nullable=False),
+    sa.Column("params", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+    sa.Column("id", sa.Uuid(), server_default=sa.text("gen_random_uuid()"), nullable=False),
+    sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), nullable=False),
+    sa.ForeignKeyConstraint(["group_id"], ["groups.id"], name=op.f("fk_chunker_configs_group_id_groups")),
+    sa.PrimaryKeyConstraint("id", name=op.f("pk_chunker_configs")),
+    sa.UniqueConstraint("group_id", name=op.f("uq_chunker_configs_group_id"))
+    )
     op.create_table("materials",
     sa.Column("group_id", sa.UUID(), nullable=False),
     sa.Column("name", sa.Text(), nullable=False),
@@ -289,6 +300,13 @@ def upgrade() -> None:
     op.execute("CREATE INDEX ix_chunks_embedding_hnsw ON chunks USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops)")
     # GIN по metadata чанков
     op.execute("CREATE INDEX ix_chunks_metadata ON chunks USING gin (metadata)")
+    # Пайплайн (ЧНК-1): embedding появляется на шаге embed
+    op.execute("ALTER TABLE chunks ALTER COLUMN embedding DROP NOT NULL")
+    # FTS-колонки чанков (data-model §8)
+    op.execute("ALTER TABLE chunks ADD COLUMN tsv_ru tsvector")
+    op.execute("ALTER TABLE chunks ADD COLUMN tsv_en tsvector")
+    op.execute("CREATE INDEX ix_chunks_tsv_ru ON chunks USING gin (tsv_ru)")
+    op.execute("CREATE INDEX ix_chunks_tsv_en ON chunks USING gin (tsv_en)")
 
 
 def downgrade() -> None:
@@ -303,6 +321,11 @@ def downgrade() -> None:
     op.execute("DROP INDEX IF EXISTS ix_material_versions_description_tsv")
     op.execute("DROP INDEX IF EXISTS ix_groups_name_tsv")
     op.execute("DROP INDEX IF EXISTS ix_groups_description_tsv")
+    op.execute("DROP INDEX IF EXISTS ix_chunks_tsv_en")
+    op.execute("DROP INDEX IF EXISTS ix_chunks_tsv_ru")
+    op.execute("ALTER TABLE chunks DROP COLUMN IF EXISTS tsv_en")
+    op.execute("ALTER TABLE chunks DROP COLUMN IF EXISTS tsv_ru")
+    op.execute("ALTER TABLE chunks ALTER COLUMN embedding SET NOT NULL")
     op.execute("DROP INDEX IF EXISTS ix_chunks_metadata")
     op.execute("DROP INDEX IF EXISTS ix_chunks_embedding_hnsw")
     op.execute("ALTER TABLE groups DROP COLUMN IF EXISTS name_tsv, DROP COLUMN IF EXISTS description_tsv")
@@ -315,6 +338,7 @@ def downgrade() -> None:
     op.drop_table("chunks")
     op.drop_table("material_versions")
     op.drop_table("materials")
+    op.drop_table("chunker_configs")
     op.drop_table("group_roles")
     op.drop_table("users")
     op.drop_table("settings")
