@@ -86,7 +86,7 @@ class MaterialVersion(PkMixin, Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=text("now()"), nullable=False
     )
-    reviewers: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    reviewers: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     confirmed_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     chunker_name: Mapped[str | None] = mapped_column(Text, nullable=True)
