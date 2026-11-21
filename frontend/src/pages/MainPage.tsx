@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Button, Layout, Table, Tree, Breadcrumb, Input, Space, message } from 'antd'
+import { Button, Layout, Table, theme as antdTheme, Tree, Breadcrumb, Input, Space, message } from 'antd'
 import { Outlet, useNavigate } from 'react-router-dom'
 import { groupsApi, materialsApi, type Group, type Material } from '../shared/api/client'
 import { logout } from '../shared/api/auth'
+import { ThemeToggle } from '../shared/theme'
 
 
 function errMsg(e: unknown): string {
@@ -32,6 +33,7 @@ interface TreeState {
 
 export default function MainPage() {
   const navigate = useNavigate()
+  const { token } = antdTheme.useToken()
   const [tree, setTree] = useState<TreeState>({ roots: [], childrenOf: {}, loaded: {} })
   const [expandedKeys, setExpandedKeys] = useState<React.Key[]>([])
   const [selected, setSelected] = useState<Group | null>(null)
@@ -138,7 +140,15 @@ export default function MainPage() {
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Header style={{ background: '#fff', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: 16 }}>
+      <Header
+        style={{
+          background: token.colorBgContainer,
+          borderBottom: `1px solid ${token.colorBorderSecondary}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+        }}
+      >
         <h2 style={{ margin: 0 }}>База знаний</h2>
         <Input.Search
           placeholder="Поиск по базе…"
@@ -146,10 +156,19 @@ export default function MainPage() {
           onSearch={(q) => navigate(`/search?q=${encodeURIComponent(q)}`)}
         />
         <Button type="primary" onClick={() => navigate('/search')}>Поиск</Button>
-        <Button onClick={logout} style={{ marginLeft: 'auto' }}>Выйти</Button>
+        <span style={{ marginLeft: 'auto' }} />
+        <ThemeToggle />
+        <Button onClick={logout}>Выйти</Button>
       </Header>
       <Layout>
-        <Sider width={280} style={{ background: '#fff', borderRight: '1px solid #eee', padding: 12 }}>
+        <Sider
+          width={280}
+          style={{
+            background: token.colorBgContainer,
+            borderRight: `1px solid ${token.colorBorderSecondary}`,
+            padding: 12,
+          }}
+        >
           <Space.Compact style={{ width: '100%', marginBottom: 8 }}>
             <Input
               value={newGroupName}
