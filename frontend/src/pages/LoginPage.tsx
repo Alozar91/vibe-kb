@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button, Card, Input, Typography } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { devLogin, login } from '../shared/api/auth'
+import { ThemeToggle } from '../shared/theme'
 
 /**
  * Экран входа (АУТ-1): Keycloak Authorization Code + PKCE.
@@ -12,7 +13,10 @@ export default function LoginPage() {
   const [token, setToken] = useState('')
 
   return (
-    <div style={{ display: 'grid', placeItems: 'center', minHeight: '80vh' }}>
+    <div style={{ display: 'grid', placeItems: 'center', minHeight: '80vh', position: 'relative' }}>
+      <div style={{ position: 'absolute', top: 16, right: 16 }}>
+        <ThemeToggle />
+      </div>
       <Card title="Вход в базу знаний" style={{ width: 440 }}>
         <Typography.Paragraph type="secondary">
           Корпоративная аутентификация (Keycloak, realm «corp-kb»). Используйте учётную запись
