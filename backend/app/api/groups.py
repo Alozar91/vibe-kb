@@ -5,10 +5,12 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_principal, get_db
 from app.common.db import UoW
+from app.common.errors import NotFound, PermissionDenied
 from app.common.security.jwt import Principal
 from app.domain.groups import roles_service, service
 from app.domain.groups.schemas import GroupCreate, GroupMove, GroupNode, GroupOut, GroupUpdate, RoleAssign, RoleOut
@@ -170,3 +172,86 @@ def revoke_role(
     with UoW(session) as uow:
         roles_service.revoke_role(uow, principal, group_id, user_id)
     return Response(status_code=204)
+
+
+class ChunkerSetting(BaseModel):
+    name: str
+    params: dict = {}
+
+
+@router.get("/groups/{group_id}/chunker")
+def get_chunker_setting(
+    group_id: uuid.UUID,
+    session: Session = Depends(get_db),
+    principal: Principal = Depends(get_current_principal),
+):
+    """Настройка чанкера группы (ГРП-5; пусто — разрешение уходит вверх, ЧНК-4)."""
+
+    from app.common.authz import is_admin
+    from app.models.identity import ChunkerConfig
+
+    if not is_admin(principal):
+        raise PermissionDenied("Настройку чанкера выполняет системный администратор (ГРП-5)")
+    row = session.query(ChunkerConfig).filter_by(group_id=group_id).first()
+    if row is None:
+        return {"name": None, "params": {}, "inherited": True}
+    return {"name": row.chunker_name, "params": row.params, "inherited": False}
+
+
+@router.put("/groups/{group_id}/chunker")
+def put_chunker_setting(
+    group_id: uuid.UUID,
+    payload: ChunkerSetting,
+    session: Session = Depends(get_db),
+    principal: Principal = Depends(get_current_principal),
+):
+    """Задать/сбросить настройку чанкера (ГРП-5). Изменение → переиндексация поддерева (ЧНК-9)."""
+
+    from app.common.authz import is_admin
+    from app.domain.indexing.chunkers import CHUNKERS
+    from app.models.identity import ChunkerConfig
+
+    if not is_admin(principal):
+        raise PermissionDenied("Настройку чанкера выполняет системный администратор (ГРП-5)")
+    # ЧНК-8 превентивно: несуществующий чанкер — отказ (не ждём fallback)
+    if payload.name and payload.name not in CHUNKERS:
+        raise NotFound(f"Чанкер «{payload.name}» не зарегистрирован")
+
+    row = session.query(ChunkerConfig).filter_by(group_id=group_id).first()
+    changed = False
+    if row is None and payload.name:
+        session.add(ChunkerConfig(group_id=group_id, chunker_name=payload.name, params=payload.params))
+        changed = True
+    elif row is not None and payload.name:
+        if row.chunker_name != payload.name or row.params != payload.params:
+            row.chunker_name = payload.name
+            row.params = payload.params
+            changed = True
+    elif row is not None and not payload.name:
+        session.delete(row)
+        changed = True
+    session.commit()
+
+    requeued = 0
+    if changed:
+        # ЧНК-9: переиндексация поддерева — актуальные версии всех материалов группы и потомков
+        from sqlalchemy import text as _sql
+
+        from app.workers.celery_app import run_pipeline_task
+
+        rows = session.execute(
+            _sql(
+                """
+                SELECT v.id::text FROM material_versions v
+                JOIN materials m ON m.id = v.material_id
+                JOIN groups g ON g.id = m.group_id
+                WHERE m.current_version_id = v.id AND NOT m.is_deleted
+                  AND (SELECT path FROM groups WHERE id = :gid) @> g.path
+                """
+            ),
+            {"gid": str(group_id)},
+        ).fetchall()
+        for (vid,) in rows:
+            run_pipeline_task.delay(vid)
+            requeued += 1
+    return {"changed": changed, "reindex_queued": requeued}

@@ -156,9 +156,13 @@ CHUNKERS: dict[str, Callable[[str, dict], list[dict]]] = {
 }
 
 
-def run_chunker(name: str, params: dict, text: str) -> list[dict]:
-    """Выполнить чанкер по имени; неизвестный → дефолт + warning (ЧНК-8 обрабатывается выше)."""
+def run_chunker(name: str, params: dict, text: str) -> tuple[list[dict], str | None]:
+    """Выполнить чанкер; неизвестный → дефолт + предупреждение (ЧНК-8).
+
+    Возвращает (чанки, warning) — warning записывается в jobs.error при done.
+    """
 
     if name not in CHUNKERS:
-        name = DEFAULT_CHUNKER
-    return CHUNKERS[name](text, params)
+        warning = f"ЧНК-8: чанкер «{name}» не найден, применён дефолт {DEFAULT_CHUNKER}"
+        return CHUNKERS[DEFAULT_CHUNKER](text, params), warning
+    return CHUNKERS[name](text, params), None
